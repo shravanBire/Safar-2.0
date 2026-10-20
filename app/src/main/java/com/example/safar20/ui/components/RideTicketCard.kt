@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,14 +41,8 @@ import com.example.safar20.data.local.entity.LocationPointEntity
 import com.example.safar20.data.local.entity.TripSummaryEntity
 import com.example.safar20.ui.screens.home.CockpitMapView
 import com.example.safar20.ui.theme.BebasNeue
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.CrankcaseBlack
-import com.example.safar20.ui.theme.GunmetalGauge
 import com.example.safar20.ui.theme.Inter
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.Rajdhani
-import com.example.safar20.ui.theme.RoyalBrass
-import com.example.safar20.ui.theme.WarmIvory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -131,7 +126,7 @@ fun RideTicketCard(
     modifier: Modifier = Modifier
 ) {
     val ticketShape = remember { TicketShape(cornerRadius = 12.dp, notchRadius = 8.dp, notchOffsetY = 54.dp) }
-    val borderColor = if (isSelected) RoyalBrass else BronzeRim
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     val borderWidth = if (isSelected) 1.5.dp else 1.dp
 
     val formattedTimeRange = formatTimeRange(trip.startTimestamp, trip.endTimestamp)
@@ -139,6 +134,8 @@ fun RideTicketCard(
 
     val mapLat = routePoints.firstOrNull()?.latitude ?: 21.1458
     val mapLon = routePoints.firstOrNull()?.longitude ?: 79.0882
+
+    val outlineColor = MaterialTheme.colorScheme.outline
 
     Surface(
         modifier = modifier
@@ -148,7 +145,7 @@ fun RideTicketCard(
             .clip(ticketShape)
             .clickable { onCardClick() },
         shape = ticketShape,
-        color = GunmetalGauge
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
@@ -168,27 +165,27 @@ fun RideTicketCard(
                         text = "RIDE #$rideNumber",
                         fontFamily = BebasNeue,
                         fontSize = 20.sp,
-                        color = RoyalBrass,
+                        color = MaterialTheme.colorScheme.primary,
                         letterSpacing = 1.sp
                     )
                     Text(
                         text = formattedTimeRange,
                         fontFamily = Inter,
                         fontSize = 12.sp,
-                        color = WarmIvory
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
                 // Duration Chip
                 Box(
                     modifier = Modifier
-                        .background(CrankcaseBlack, shape = RoundedCornerShape(12.dp))
-                        .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.background, shape = RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "${trip.durationMinutes} MINS",
-                        color = WarmIvory,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontFamily = BebasNeue,
                         fontSize = 14.sp
                     )
@@ -204,7 +201,7 @@ fun RideTicketCard(
                     .height(1.dp)
             ) {
                 drawLine(
-                    color = BronzeRim,
+                    color = outlineColor,
                     start = Offset(14.dp.toPx(), 0f),
                     end = Offset(size.width - 14.dp.toPx(), 0f),
                     strokeWidth = 1.dp.toPx(),
@@ -246,9 +243,9 @@ fun RideTicketCard(
                         .fillMaxWidth()
                         .padding(horizontal = 18.dp)
                         .height(180.dp)
-                        .border(1.dp, BronzeRim, RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                         .clip(RoundedCornerShape(12.dp))
-                        .background(CrankcaseBlack)
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
                     CockpitMapView(
                         latitude = mapLat,
@@ -277,14 +274,14 @@ private fun TicketStatColumn(
             fontFamily = Rajdhani,
             fontWeight = FontWeight.SemiBold,
             fontSize = 11.sp,
-            color = MutedPewter,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.sp
         )
         Text(
             text = value,
             fontFamily = BebasNeue,
             fontSize = 22.sp,
-            color = WarmIvory,
+            color = MaterialTheme.colorScheme.onSurface,
             lineHeight = 24.sp
         )
     }

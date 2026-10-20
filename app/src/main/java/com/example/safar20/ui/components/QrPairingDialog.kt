@@ -64,11 +64,13 @@ import com.google.mlkit.vision.common.InputImage
  * QR Code Pairing Dialog supporting Live CameraX ML Kit Camera Scanner,
  * QR payload text parsing, manual entry, and a 1-tap Demo preset.
  */
+@ExperimentalGetImage
 @Composable
 fun QrPairingDialog(
     onDismiss: () -> Unit,
     onPairQrUri: (String) -> Unit,
-    onPairManual: (id: String, name: String, sim: String) -> Unit
+    onPairManual: (id: String, name: String, sim: String) -> Unit,
+    externalError: String? = null
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Camera Scanner, 1 = QR Text, 2 = Manual
 
@@ -77,6 +79,8 @@ fun QrPairingDialog(
     var manualName by remember { mutableStateOf("") }
     var manualSim by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val displayedError = externalError ?: errorMessage
 
     val demoPayload = "safar://pair?id=SAFAR_01&name=RE%20Classic%20350&pub=4d8a1c92b8e3f7a1029c83b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4&sec=a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90&sim=+919876543210"
 
@@ -207,9 +211,9 @@ fun QrPairingDialog(
                     }
                 }
 
-                if (errorMessage != null) {
+                if (displayedError != null) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = errorMessage!!, color = SignalRed, fontSize = 12.sp)
+                    Text(text = displayedError, color = SignalRed, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -255,7 +259,7 @@ fun QrPairingDialog(
     }
 }
 
-@OptIn(ExperimentalGetImage::class)
+@ExperimentalGetImage
 @Composable
 private fun CameraXScannerTab(
     onQrScanned: (String) -> Unit
@@ -266,6 +270,8 @@ private fun CameraXScannerTab(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+
+    var hasScanned by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -310,17 +316,21 @@ private fun CameraXScannerTab(
 
                         imageAnalysis.setAnalyzer(executor) { imageProxy ->
                             val mediaImage = imageProxy.image
-                            if (mediaImage != null) {
+                            if (mediaImage != null && !hasScanned) {
                                 val inputImage = InputImage.fromMediaImage(
                                     mediaImage,
                                     imageProxy.imageInfo.rotationDegrees
                                 )
                                 scanner.process(inputImage)
                                     .addOnSuccessListener { barcodes ->
-                                        for (barcode in barcodes) {
-                                            barcode.rawValue?.let { raw ->
-                                                if (raw.startsWith("safar://")) {
-                                                    onQrScanned(raw)
+                                        if (!hasScanned) {
+                                            for (barcode in barcodes) {
+                                                barcode.rawValue?.let { raw ->
+                                                    if (raw.startsWith("safar://")) {
+                                                        hasScanned = true
+                                                        onQrScanned(raw)
+                                                        break
+                                                    }
                                                 }
                                             }
                                         }

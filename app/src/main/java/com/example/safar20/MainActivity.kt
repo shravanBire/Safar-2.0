@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -89,11 +90,11 @@ fun SafarAppContent() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.dp)
-                                .background(BronzeRim)
+                                .background(MaterialTheme.colorScheme.outline)
                         )
                         NavigationBar(
-                            containerColor = GunmetalGauge,
-                            contentColor = RoyalBrass
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.primary
                         ) {
                             navItems.forEachIndexed { index, item ->
                                 val isSelected = selectedScreenIndex == index
@@ -109,7 +110,7 @@ fun SafarAppContent() {
                                                     modifier = Modifier
                                                         .width(18.dp)
                                                         .height(3.dp)
-                                                        .background(RoyalBrass, shape = RoundedCornerShape(1.5.dp))
+                                                        .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(1.5.dp))
                                                 )
                                                 Spacer(modifier = Modifier.height(4.dp))
                                             } else {
@@ -131,11 +132,11 @@ fun SafarAppContent() {
                                         )
                                     },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = RoyalBrass,
-                                        selectedTextColor = RoyalBrass,
+                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
                                         indicatorColor = Color.Transparent,
-                                        unselectedIconColor = MutedPewter,
-                                        unselectedTextColor = MutedPewter
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 )
                             }

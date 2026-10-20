@@ -1,5 +1,6 @@
 package com.example.safar20.ui.screens.settings
 
+import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,6 +27,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -46,21 +48,16 @@ import com.example.safar20.ui.components.QrPairingDialog
 import com.example.safar20.ui.components.SectionLabel
 import com.example.safar20.ui.components.SegmentedToggle
 import com.example.safar20.ui.theme.BebasNeue
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.CrankcaseBlack
-import com.example.safar20.ui.theme.GunmetalGauge
 import com.example.safar20.ui.theme.Inter
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.PhosphorGreen
 import com.example.safar20.ui.theme.Rajdhani
-import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SignalRed
-import com.example.safar20.ui.theme.WarmIvory
 import com.example.safar20.viewModels.SafarViewModel
 
 /**
  * Settings Screen for Unit Conversion, Theme Switching, Device Management & Telemetry Simulation.
  */
+@ExperimentalGetImage
 @Composable
 fun SettingScreen(
     viewModel: SafarViewModel,
@@ -73,11 +70,12 @@ fun SettingScreen(
     val isSimulatorRunning by viewModel.isSimulatorRunning.collectAsState()
 
     var showQrDialog by remember { mutableStateOf(false) }
+    var qrErrorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(CrankcaseBlack)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -85,7 +83,7 @@ fun SettingScreen(
             text = "COCKPIT SETTINGS",
             fontFamily = Rajdhani,
             fontWeight = FontWeight.Bold,
-            color = WarmIvory,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 20.sp,
             letterSpacing = 2.sp
         )
@@ -109,13 +107,13 @@ fun SettingScreen(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             letterSpacing = 1.sp,
-                            color = WarmIvory
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (isDarkTheme) "Midnight Moto Cockpit (Dark)" else "Classic Parchment Day-Dial (Light)",
                             fontFamily = Inter,
                             fontSize = 12.sp,
-                            color = MutedPewter
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -150,13 +148,13 @@ fun SettingScreen(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             letterSpacing = 1.sp,
-                            color = WarmIvory
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = if (speedUnit == "mph") "Imperial (Miles, MPH)" else "Metric (Kilometers, KM/H)",
                             fontFamily = Inter,
                             fontSize = 12.sp,
-                            color = MutedPewter
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -187,7 +185,7 @@ fun SettingScreen(
                         text = "NO TRACKERS PAIRED",
                         fontFamily = Rajdhani,
                         fontSize = 12.sp,
-                        color = MutedPewter,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 } else {
@@ -208,7 +206,7 @@ fun SettingScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.DirectionsBike,
                                     contentDescription = null,
-                                    tint = if (isSelected) RoyalBrass else MutedPewter,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -219,7 +217,7 @@ fun SettingScreen(
                                             fontFamily = Rajdhani,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
-                                            color = WarmIvory
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         if (isSelected) {
                                             Spacer(modifier = Modifier.width(8.dp))
@@ -234,7 +232,7 @@ fun SettingScreen(
                                         text = "ID: ${device.deviceId} • SIM: ${device.simNumber}",
                                         fontFamily = Inter,
                                         fontSize = 11.sp,
-                                        color = MutedPewter
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -250,7 +248,7 @@ fun SettingScreen(
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 4.dp),
                                 thickness = 1.dp,
-                                color = BronzeRim
+                                color = MaterialTheme.colorScheme.outline
                             )
                         }
                     }
@@ -259,18 +257,21 @@ fun SettingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedButton(
-                    onClick = { showQrDialog = true },
+                    onClick = {
+                        qrErrorMessage = null
+                        showQrDialog = true
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, RoyalBrass),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = RoyalBrass
+                        contentColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = null,
-                        tint = RoyalBrass,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -280,7 +281,7 @@ fun SettingScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         letterSpacing = 1.sp,
-                        color = RoyalBrass
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -304,24 +305,24 @@ fun SettingScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         letterSpacing = 1.sp,
-                        color = WarmIvory
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Simulate live GPS telemetry stream along Nagpur route",
                         fontFamily = Inter,
                         fontSize = 12.sp,
-                        color = MutedPewter
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
                     checked = isSimulatorRunning,
                     onCheckedChange = { viewModel.toggleSimulator(it) },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = CrankcaseBlack,
-                        checkedTrackColor = RoyalBrass,
-                        uncheckedThumbColor = MutedPewter,
-                        uncheckedTrackColor = GunmetalGauge,
-                        uncheckedBorderColor = BronzeRim
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.outline
                     )
                 )
             }
@@ -345,13 +346,13 @@ fun SettingScreen(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         letterSpacing = 2.sp,
-                        color = RoyalBrass
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = "v2.0.4",
                         fontFamily = BebasNeue,
                         fontSize = 16.sp,
-                        color = WarmIvory
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -359,7 +360,7 @@ fun SettingScreen(
                     text = "Serverless P2P - Zero cloud",
                     fontFamily = Inter,
                     fontSize = 12.sp,
-                    color = MutedPewter
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -369,16 +370,26 @@ fun SettingScreen(
 
     if (showQrDialog) {
         QrPairingDialog(
-            onDismiss = { showQrDialog = false },
+            externalError = qrErrorMessage,
+            onDismiss = {
+                qrErrorMessage = null
+                showQrDialog = false
+            },
             onPairQrUri = { uri ->
                 viewModel.pairDeviceFromQr(
                     qrUriString = uri,
-                    onSuccess = { showQrDialog = false },
-                    onError = { }
+                    onSuccess = {
+                        qrErrorMessage = null
+                        showQrDialog = false
+                    },
+                    onError = { err ->
+                        qrErrorMessage = err
+                    }
                 )
             },
             onPairManual = { id, name, sim ->
                 viewModel.addManualDevice(id, name, sim) {
+                    qrErrorMessage = null
                     showQrDialog = false
                 }
             }

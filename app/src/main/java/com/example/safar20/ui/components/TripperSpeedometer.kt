@@ -52,6 +52,9 @@ import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
+private const val START_ANGLE = 135f
+private const val TOTAL_SWEEP = 270f
+
 /**
  * Royal Enfield Tripper Dash inspired circular Speedometer Gauge.
  * Features radial gradient dial face, glowing progress arc, tapered mechanical needle,
@@ -63,6 +66,7 @@ fun TripperSpeedometer(
     unit: String = "km/h",
     odoDistanceKm: Double = 0.0,
     gaugeSize: Dp = 260.dp,
+    connectionState: ConnectionState = ConnectionState.PARKED,
     modifier: Modifier = Modifier
 ) {
     // Smooth bouncy spring mechanical needle sweep
@@ -141,23 +145,20 @@ fun TripperSpeedometer(
             )
 
             // Gauge Geometry (135° to 405°, total 270°)
-            startAngle = 135f
-            totalSweep = 270f
-
             val arcRadius = outerRadius - 16.dp.toPx()
             val arcSize = Size(arcRadius * 2, arcRadius * 2)
             val arcTopLeft = Offset(center.x - arcRadius, center.y - arcRadius)
 
             // 3. Progress Arc (from 0 up to current speed, turning SignalRed > 120)
             val currentSpeedRatio = (animatedSpeed / 160f).coerceIn(0f, 1f)
-            val currentSweep = currentSpeedRatio * totalSweep
+            val currentSweep = currentSpeedRatio * TOTAL_SWEEP
             val arcColor = if (animatedSpeed > 120f) SignalRed else RoyalBrass
 
             // Glow stroke underneath
             if (currentSweep > 0f) {
                 drawArc(
                     color = arcColor.copy(alpha = 0.25f),
-                    startAngle = startAngle,
+                    startAngle = START_ANGLE,
                     sweepAngle = currentSweep,
                     useCenter = false,
                     topLeft = arcTopLeft,
@@ -168,7 +169,7 @@ fun TripperSpeedometer(
                 // Main progress stroke
                 drawArc(
                     color = arcColor,
-                    startAngle = startAngle,
+                    startAngle = START_ANGLE,
                     sweepAngle = currentSweep,
                     useCenter = false,
                     topLeft = arcTopLeft,
@@ -183,7 +184,7 @@ fun TripperSpeedometer(
 
             for (i in 0..160 step 10) {
                 val speedRatio = i / 160f
-                val tickAngle = startAngle + (speedRatio * totalSweep)
+                val tickAngle = START_ANGLE + (speedRatio * TOTAL_SWEEP)
                 val tickRad = Math.toRadians(tickAngle.toDouble())
 
                 val isMajor = (i % 20 == 0)
@@ -230,7 +231,7 @@ fun TripperSpeedometer(
             }
 
             // 4. Tapered Mechanical Needle
-            val needleAngle = startAngle + (animatedSpeed / 160f).coerceIn(0f, 1f) * totalSweep
+            val needleAngle = START_ANGLE + (animatedSpeed / 160f).coerceIn(0f, 1f) * TOTAL_SWEEP
             val needleRad = Math.toRadians(needleAngle.toDouble())
             val perpRad = needleRad + Math.PI / 2.0
             val needleLength = outerRadius - 28.dp.toPx()
@@ -278,6 +279,8 @@ fun TripperSpeedometer(
         }
 
         // Foreground Readout Overlay (Warning Strip, Speed, Mechanical Odometer)
+        val isConnectionActive = connectionState == ConnectionState.P2P_DIRECT || connectionState == ConnectionState.SIMULATOR_SYNCING
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
@@ -290,9 +293,9 @@ fun TripperSpeedometer(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                WarningLightPill(label = "GPS", color = PhosphorGreen)
-                WarningLightPill(label = "P2P", color = RoyalBrass)
-                WarningLightPill(label = "SOS", color = SignalRed)
+                WarningLightPill(label = "GPS", color = PhosphorGreen, isActive = isConnectionActive)
+                WarningLightPill(label = "P2P", color = RoyalBrass, isActive = isConnectionActive)
+                WarningLightPill(label = "SOS", color = SignalRed, isActive = false)
             }
 
             // 5. Center Speed & Unit Readout
@@ -364,24 +367,23 @@ fun TripperSpeedometer(
     }
 }
 
-private var startAngle = 135f
-private var totalSweep = 270f
-
 @Composable
 private fun WarningLightPill(
     label: String,
-    color: Color
+    color: Color,
+    isActive: Boolean = false
 ) {
+    val alpha = if (isActive) 1.0f else 0.4f
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
                 .size(5.dp)
-                .background(color.copy(alpha = 0.4f), shape = CircleShape)
+                .background(color.copy(alpha = alpha), shape = CircleShape)
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
             text = label,
-            color = MutedPewter.copy(alpha = 0.4f),
+            color = MutedPewter.copy(alpha = alpha),
             fontFamily = Rajdhani,
             fontWeight = FontWeight.Bold,
             fontSize = 9.sp,

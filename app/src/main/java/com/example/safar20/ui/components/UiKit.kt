@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,17 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.safar20.ui.theme.BebasNeue
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.CrankcaseBlack
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.Rajdhani
-import com.example.safar20.ui.theme.RoyalBrass
-import com.example.safar20.ui.theme.WarmIvory
 
 /**
- * Retro-cockpit styled card with GunmetalGauge background, 1.dp BronzeRim border,
- * 16.dp rounded corners, and 16.dp inner padding.
+ * Retro-cockpit styled card using MaterialTheme colorScheme.
  */
 @Composable
 fun BrassCard(
@@ -43,9 +37,9 @@ fun BrassCard(
     content: @Composable BoxScope.() -> Unit
 ) {
     Surface(
-        modifier = modifier.border(1.dp, BronzeRim, RoundedCornerShape(16.dp)),
+        modifier = modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        color = GunmetalGauge
+        color = MaterialTheme.colorScheme.surface
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
             content()
@@ -54,7 +48,7 @@ fun BrassCard(
 }
 
 /**
- * Uppercase section header label with Rajdhani font and RoyalBrass vertical bar accent.
+ * Uppercase section header label with Rajdhani font and primary color accent bar.
  */
 @Composable
 fun SectionLabel(
@@ -68,16 +62,16 @@ fun SectionLabel(
         Box(
             modifier = Modifier
                 .size(width = 3.dp, height = 12.dp)
-                .background(RoyalBrass, shape = RoundedCornerShape(1.dp))
+                .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(1.dp))
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = text.uppercase(),
             fontFamily = Rajdhani,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             fontSize = 12.sp,
             letterSpacing = 2.sp,
-            color = MutedPewter
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -101,7 +95,7 @@ fun BrassStatBadge(
                 fontFamily = BebasNeue,
                 fontSize = 28.sp,
                 lineHeight = 32.sp,
-                color = WarmIvory
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = label.uppercase(),
@@ -109,7 +103,7 @@ fun BrassStatBadge(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 11.sp,
                 letterSpacing = 1.5.sp,
-                color = MutedPewter
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -127,9 +121,9 @@ fun SegmentedToggle(
 ) {
     Box(
         modifier = modifier
-            .border(1.dp, BronzeRim, RoundedCornerShape(24.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
-            .background(CrankcaseBlack)
+            .background(MaterialTheme.colorScheme.background)
             .padding(4.dp)
     ) {
         Row(
@@ -143,7 +137,7 @@ fun SegmentedToggle(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) RoyalBrass else Color.Transparent)
+                        .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                         .clickable { onSelect(index) }
                         .padding(vertical = 8.dp, horizontal = 12.dp),
                     contentAlignment = Alignment.Center
@@ -154,7 +148,7 @@ fun SegmentedToggle(
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         letterSpacing = 1.sp,
-                        color = if (isSelected) CrankcaseBlack else MutedPewter
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

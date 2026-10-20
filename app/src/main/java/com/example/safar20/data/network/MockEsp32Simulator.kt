@@ -156,8 +156,8 @@ object MockEsp32Simulator {
         val nowSec = System.currentTimeMillis() / 1000
         val oneDaySec = 86400L
 
-        // --- RIDE 1: Kamptee Highway Morning Ride ---
-        val ride1Start = nowSec - oneDaySec - 7200 // Yesterday 06:30 AM approx
+        // --- RIDE 1: Kamptee Highway Morning Ride (Today) ---
+        val ride1Start = nowSec - 7200 // Today 2 hours ago approx
         val ride1End = ride1Start + 2700 // 45 mins duration
         val trip1Id = "TRIP_NAGPUR_01"
 
@@ -200,8 +200,8 @@ object MockEsp32Simulator {
             )
         }
 
-        // --- RIDE 2: Airport Expressway Sunset Commute ---
-        val ride2Start = nowSec - (2 * oneDaySec) - 3600 // 2 days ago evening
+        // --- RIDE 2: Airport Expressway Sunset Commute (Yesterday) ---
+        val ride2Start = nowSec - oneDaySec - 3600 // Yesterday 1 day + 1 hour ago
         val ride2End = ride2Start + 2100 // 35 mins duration
         val trip2Id = "TRIP_NAGPUR_02"
 

@@ -54,6 +54,18 @@ class SafarViewModel(
     private val _liveOdoDistanceKm = MutableStateFlow(18.4)
     val liveOdoDistanceKm: StateFlow<Double> = _liveOdoDistanceKm.asStateFlow()
 
+    private val _liveTripDistanceKm = MutableStateFlow(18.4)
+    val liveTripDistanceKm: StateFlow<Double> = _liveTripDistanceKm.asStateFlow()
+
+    private val _liveAvgSpeedKmh = MutableStateFlow(31.0)
+    val liveAvgSpeedKmh: StateFlow<Double> = _liveAvgSpeedKmh.asStateFlow()
+
+    private val _liveMaxSpeedKmh = MutableStateFlow(78.0)
+    val liveMaxSpeedKmh: StateFlow<Double> = _liveMaxSpeedKmh.asStateFlow()
+
+    private var liveSpeedSum: Double = 31.0
+    private var liveSpeedPointCount: Int = 1
+
     private var previousPoint: BinaryPacketCodec.ParsedTripPoint? = null
 
     private val _isSimulatorRunning = MutableStateFlow(false)
@@ -106,7 +118,17 @@ class SafarViewModel(
                         prev.latitude, prev.longitude,
                         telemetryPoint.latitude, telemetryPoint.longitude
                     )
-                    _liveOdoDistanceKm.value += (deltaM / 1000.0)
+                    val deltaKm = deltaM / 1000.0
+                    _liveOdoDistanceKm.value += deltaKm
+                    _liveTripDistanceKm.value += deltaKm
+                }
+                if (telemetryPoint.speedKmh > 0f) {
+                    liveSpeedPointCount++
+                    liveSpeedSum += telemetryPoint.speedKmh
+                    _liveAvgSpeedKmh.value = liveSpeedSum / liveSpeedPointCount
+                    if (telemetryPoint.speedKmh > _liveMaxSpeedKmh.value) {
+                        _liveMaxSpeedKmh.value = telemetryPoint.speedKmh.toDouble()
+                    }
                 }
                 previousPoint = telemetryPoint
                 _liveTelemetry.value = telemetryPoint
@@ -169,6 +191,12 @@ class SafarViewModel(
     fun toggleSimulator(enable: Boolean) {
         _isSimulatorRunning.value = enable
         if (enable) {
+            _liveTripDistanceKm.value = 0.0
+            _liveAvgSpeedKmh.value = 0.0
+            _liveMaxSpeedKmh.value = 0.0
+            liveSpeedSum = 0.0
+            liveSpeedPointCount = 0
+            previousPoint = null
             repository.startSimulator()
         } else {
             repository.stopSimulator()

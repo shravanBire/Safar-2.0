@@ -1,5 +1,6 @@
 package com.example.safar20.ui.screens.home
 
+import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,9 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Compress
+import androidx.compose.material.icons.filled.Expand
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,15 +51,11 @@ import com.example.safar20.data.local.UnitConverter
 import com.example.safar20.ui.components.BrassStatBadge
 import com.example.safar20.ui.components.ConnectionState
 import com.example.safar20.ui.components.QrPairingDialog
+import com.example.safar20.ui.components.SectionLabel
 import com.example.safar20.ui.components.TelemetryHeaderPill
 import com.example.safar20.ui.components.TripperSpeedometer
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.CrankcaseBlack
-import com.example.safar20.ui.theme.GunmetalGauge
 import com.example.safar20.ui.theme.PhosphorGreen
 import com.example.safar20.ui.theme.Rajdhani
-import com.example.safar20.ui.theme.RoyalBrass
-import com.example.safar20.ui.theme.WarmIvory
 import com.example.safar20.viewModels.SafarViewModel
 
 /**
@@ -61,6 +63,7 @@ import com.example.safar20.viewModels.SafarViewModel
  * Vertically scrollable dashboard layout with TelemetryHeaderPill,
  * TripperSpeedometer with radial glow, Trip stat badges, and inset map view.
  */
+@ExperimentalGetImage
 @Composable
 fun HomeScreen(
     viewModel: SafarViewModel,
@@ -70,12 +73,16 @@ fun HomeScreen(
     val allDevices by viewModel.allDevices.collectAsState()
     val liveTelemetry by viewModel.liveTelemetry.collectAsState()
     val liveOdoKm by viewModel.liveOdoDistanceKm.collectAsState()
+    val liveTripDist by viewModel.liveTripDistanceKm.collectAsState()
+    val liveAvgSpeed by viewModel.liveAvgSpeedKmh.collectAsState()
+    val liveMaxSpeed by viewModel.liveMaxSpeedKmh.collectAsState()
     val isSimulatorRunning by viewModel.isSimulatorRunning.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val speedUnit by viewModel.speedUnit.collectAsState()
 
     var showDeviceMenu by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var qrErrorMessage by remember { mutableStateOf<String?>(null) }
     var isMapExpanded by remember { mutableStateOf(false) }
 
     val currentLat = liveTelemetry?.latitude ?: selectedDevice?.lastLat ?: 21.1458
@@ -99,7 +106,7 @@ fun HomeScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(CrankcaseBlack)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -120,11 +127,11 @@ fun HomeScreen(
                 DropdownMenu(
                     expanded = showDeviceMenu,
                     onDismissRequest = { showDeviceMenu = false },
-                    modifier = Modifier.background(GunmetalGauge)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                 ) {
                     allDevices.forEach { device ->
                         DropdownMenuItem(
-                            text = { Text(device.deviceName, color = WarmIvory) },
+                            text = { Text(device.deviceName, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 viewModel.selectDevice(device.deviceId)
                                 showDeviceMenu = false
@@ -134,13 +141,14 @@ fun HomeScreen(
                     DropdownMenuItem(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = RoyalBrass)
+                                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Pair New Tracker", color = RoyalBrass, fontWeight = FontWeight.Bold)
+                                Text("Pair New Tracker", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                         },
                         onClick = {
                             showDeviceMenu = false
+                            qrErrorMessage = null
                             showQrDialog = true
                         }
                     )
@@ -160,7 +168,7 @@ fun HomeScreen(
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    RoyalBrass.copy(alpha = 0.10f),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                                     Color.Transparent
                                 )
                             ),
@@ -172,7 +180,8 @@ fun HomeScreen(
                     speedKmh = currentSpeed,
                     unit = speedUnit,
                     odoDistanceKm = liveOdoKm,
-                    gaugeSize = 300.dp
+                    gaugeSize = 300.dp,
+                    connectionState = connectionState
                 )
             }
 
@@ -186,17 +195,17 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 BrassStatBadge(
-                    value = UnitConverter.formatDistance(18.4, speedUnit, 1),
+                    value = UnitConverter.formatDistance(liveTripDist, speedUnit, 1),
                     label = "TRIP",
                     modifier = Modifier.weight(1f)
                 )
                 BrassStatBadge(
-                    value = UnitConverter.formatSpeed(31.0, speedUnit, 0),
+                    value = UnitConverter.formatSpeed(liveAvgSpeed, speedUnit, 0),
                     label = "AVG",
                     modifier = Modifier.weight(1f)
                 )
                 BrassStatBadge(
-                    value = UnitConverter.formatSpeed(78.0, speedUnit, 0),
+                    value = UnitConverter.formatSpeed(liveMaxSpeed, speedUnit, 0),
                     label = "MAX",
                     modifier = Modifier.weight(1f)
                 )
@@ -204,16 +213,56 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Section Label + Quick Simulator Toggle Pill Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SectionLabel("NAVIGATION CLUSTER")
+
+                // Quick Simulator Toggle Pill Button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isSimulatorRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .clickable { viewModel.toggleSimulator(!isSimulatorRunning) }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isSimulatorRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = if (isSimulatorRunning) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isSimulatorRunning) "STOP SIM" else "START SIM",
+                            color = if (isSimulatorRunning) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                            fontFamily = Rajdhani,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             // 4. Map inset with expandable height and LIVE indicator
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .height(mapHeight)
-                    .border(1.dp, BronzeRim, RoundedCornerShape(20.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
-                    .background(GunmetalGauge)
-                    .clickable { isMapExpanded = !isMapExpanded }
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 CockpitMapView(
                     latitude = mapCenterLat,
@@ -222,14 +271,45 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
+                // Corner Expand / Collapse Button to avoid scroll conflicts
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .clickable { isMapExpanded = !isMapExpanded }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isMapExpanded) Icons.Default.Compress else Icons.Default.Expand,
+                            contentDescription = "Toggle Map Size",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isMapExpanded) "COLLAPSE" else "EXPAND",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontFamily = Rajdhani,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
                 val isLive = connectionState == ConnectionState.P2P_DIRECT || connectionState == ConnectionState.SIMULATOR_SYNCING
                 if (isLive) {
                     Row(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(12.dp)
-                            .background(CrankcaseBlack.copy(alpha = 0.8f), shape = RoundedCornerShape(12.dp))
-                            .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), shape = RoundedCornerShape(12.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -257,16 +337,26 @@ fun HomeScreen(
         // QR Code Pairing Dialog Modal
         if (showQrDialog) {
             QrPairingDialog(
-                onDismiss = { showQrDialog = false },
+                externalError = qrErrorMessage,
+                onDismiss = {
+                    qrErrorMessage = null
+                    showQrDialog = false
+                },
                 onPairQrUri = { uri ->
                     viewModel.pairDeviceFromQr(
                         qrUriString = uri,
-                        onSuccess = { showQrDialog = false },
-                        onError = { }
+                        onSuccess = {
+                            qrErrorMessage = null
+                            showQrDialog = false
+                        },
+                        onError = { err ->
+                            qrErrorMessage = err
+                        }
                     )
                 },
                 onPairManual = { id, name, sim ->
                     viewModel.addManualDevice(id, name, sim) {
+                        qrErrorMessage = null
                         showQrDialog = false
                     }
                 }
