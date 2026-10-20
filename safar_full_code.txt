@@ -1,0 +1,3356 @@
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\build.gradle.kts =====
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp")
+}
+
+android {
+    namespace = "com.example.safar20"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.example.safar20"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        compose = true
+    }
+}
+
+dependencies {
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    val roomVersion = "2.7.0-alpha11"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
+    // 2. Jetpack DataStore Preferences (1.1.1)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // 3. Jetpack Compose Navigation (2.7.7+) & Lifecycle ViewModel Compose
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+
+    // 4. MapLibre Android SDK (11.8.0)
+    implementation("org.maplibre.gl:android-sdk:11.8.0")
+
+    // 5. CameraX + Google ML Kit Barcode Scanning for QR pairing
+    val cameraVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraVersion")
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+
+    // 6. Material Icons Extended
+    implementation("androidx.compose.material:material-icons-extended")
+
+    testImplementation(libs.junit)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\AndroidManifest.xml =====
+
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Safar20">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Safar20"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\MainActivity.kt =====
+
+package com.example.safar20
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.safar20.ui.screens.home.HomeScreen
+import com.example.safar20.ui.screens.settings.SettingScreen
+import com.example.safar20.ui.screens.trips.TripsScreen
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SafarTheme
+import com.example.safar20.viewModels.SafarViewModel
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            SafarAppContent()
+        }
+    }
+}
+
+sealed class NavItem(val route: String, val title: String, val icon: ImageVector) {
+    object Cockpit : NavItem("home", "Cockpit", Icons.Default.Speed)
+    object Logbook : NavItem("trips", "Logbook", Icons.Default.Map)
+    object Settings : NavItem("settings", "Settings", Icons.Default.Settings)
+}
+
+@Composable
+fun SafarAppContent() {
+    val context = LocalContext.current
+    val safarViewModel: SafarViewModel = viewModel(factory = SafarViewModel.Factory(context))
+
+    val isDarkTheme by safarViewModel.isDarkTheme.collectAsState()
+    var selectedScreenIndex by remember { mutableIntStateOf(0) }
+
+    val navItems = listOf(NavItem.Cockpit, NavItem.Logbook, NavItem.Settings)
+
+    SafarTheme(darkTheme = isDarkTheme) {
+        Scaffold(
+            bottomBar = {
+                NavigationBar(
+                    containerColor = GunmetalGauge,
+                    contentColor = RoyalBrass
+                ) {
+                    navItems.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            selected = selectedScreenIndex == index,
+                            onClick = { selectedScreenIndex = index },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.title
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.title.uppercase(),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = RoyalBrass,
+                                selectedTextColor = RoyalBrass,
+                                indicatorColor = BronzeRim,
+                                unselectedIconColor = MutedPewter,
+                                unselectedTextColor = MutedPewter
+                            )
+                        )
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        ) { innerPadding ->
+            Box(modifier = Modifier.padding(innerPadding)) {
+                when (selectedScreenIndex) {
+                    0 -> HomeScreen(viewModel = safarViewModel)
+                    1 -> TripsScreen(viewModel = safarViewModel)
+                    2 -> SettingScreen(viewModel = safarViewModel)
+                }
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\PreferencesDataStore.kt =====
+
+package com.example.safar20.data.local
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "safar_preferences")
+
+class PreferencesDataStore(private val context: Context) {
+
+    companion object {
+        val KEY_IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
+        val KEY_SPEED_UNIT = stringPreferencesKey("speed_unit")
+
+        const val UNIT_KMH = "km/h"
+        const val UNIT_MPH = "mph"
+    }
+
+    val isDarkTheme: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_IS_DARK_THEME] ?: true // Default to Midnight Moto Cockpit Dark Theme
+        }
+
+    val speedUnit: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_SPEED_UNIT] ?: UNIT_KMH
+        }
+
+    suspend fun setDarkTheme(isDark: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_IS_DARK_THEME] = isDark
+        }
+    }
+
+    suspend fun setSpeedUnit(unit: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SPEED_UNIT] = if (unit == UNIT_MPH) UNIT_MPH else UNIT_KMH
+        }
+    }
+
+    suspend fun toggleSpeedUnit() {
+        context.dataStore.edit { preferences ->
+            val current = preferences[KEY_SPEED_UNIT] ?: UNIT_KMH
+            preferences[KEY_SPEED_UNIT] = if (current == UNIT_KMH) UNIT_MPH else UNIT_KMH
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\SafarDatabase.kt =====
+
+package com.example.safar20.data.local
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import com.example.safar20.data.local.dao.DeviceDao
+import com.example.safar20.data.local.dao.TripDao
+import com.example.safar20.data.local.entity.DeviceEntity
+import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.data.local.entity.TripSummaryEntity
+
+@Database(
+    entities = [
+        DeviceEntity::class,
+        TripSummaryEntity::class,
+        LocationPointEntity::class
+    ],
+    version = 1,
+    exportSchema = false
+)
+abstract class SafarDatabase : RoomDatabase() {
+
+    abstract fun deviceDao(): DeviceDao
+    abstract fun tripDao(): TripDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: SafarDatabase? = null
+
+        fun getDatabase(context: Context): SafarDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    SafarDatabase::class.java,
+                    "safar_database.db"
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\UnitConverter.kt =====
+
+package com.example.safar20.data.local
+
+import java.util.Locale
+
+object UnitConverter {
+
+    const val KM_TO_MILES_FACTOR: Double = 0.621371
+    const val UNIT_KMH = "km/h"
+    const val UNIT_MPH = "mph"
+
+    /**
+     * Converts speed from km/h to selected unit (mph if unit is "mph").
+     */
+    fun convertSpeed(speedKmh: Double, unit: String): Double {
+        return if (isMph(unit)) {
+            speedKmh * KM_TO_MILES_FACTOR
+        } else {
+            speedKmh
+        }
+    }
+
+    /**
+     * Converts Float speed from km/h to selected unit (mph if unit is "mph").
+     */
+    fun convertSpeed(speedKmh: Float, unit: String): Float {
+        return if (isMph(unit)) {
+            (speedKmh * KM_TO_MILES_FACTOR).toFloat()
+        } else {
+            speedKmh
+        }
+    }
+
+    /**
+     * Converts distance from km to selected unit (miles if unit is "mph").
+     */
+    fun convertDistance(distanceKm: Double, unit: String): Double {
+        return if (isMph(unit)) {
+            distanceKm * KM_TO_MILES_FACTOR
+        } else {
+            distanceKm
+        }
+    }
+
+    /**
+     * Formats speed value with unit label (e.g. "65 km/h" or "40 mph").
+     */
+    fun formatSpeed(speedKmh: Double, unit: String, decimals: Int = 0): String {
+        val converted = convertSpeed(speedKmh, unit)
+        val label = getSpeedUnitLabel(unit)
+        return String.format(Locale.US, "%.${decimals}f %s", converted, label)
+    }
+
+    /**
+     * Formats distance value with unit label (e.g. "12.4 km" or "7.7 mi").
+     */
+    fun formatDistance(distanceKm: Double, unit: String, decimals: Int = 1): String {
+        val converted = convertDistance(distanceKm, unit)
+        val label = getDistanceUnitLabel(unit)
+        return String.format(Locale.US, "%.${decimals}f %s", converted, label)
+    }
+
+    /**
+     * Returns speed unit display label ("km/h" or "mph").
+     */
+    fun getSpeedUnitLabel(unit: String): String {
+        return if (isMph(unit)) "mph" else "km/h"
+    }
+
+    /**
+     * Returns distance unit display label ("km" or "mi").
+     */
+    fun getDistanceUnitLabel(unit: String): String {
+        return if (isMph(unit)) "mi" else "km"
+    }
+
+    private fun isMph(unit: String): Boolean {
+        return unit.equals(UNIT_MPH, ignoreCase = true)
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\dao\DeviceDao.kt =====
+
+package com.example.safar20.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Transaction
+import com.example.safar20.data.local.entity.DeviceEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface DeviceDao {
+
+    @Query("SELECT * FROM devices ORDER BY device_name ASC")
+    fun getAllDevices(): Flow<List<DeviceEntity>>
+
+    @Query("SELECT * FROM devices WHERE is_selected = 1 LIMIT 1")
+    fun getSelectedDevice(): Flow<DeviceEntity?>
+
+    @Query("SELECT * FROM devices WHERE is_selected = 1 LIMIT 1")
+    suspend fun getSelectedDeviceOnce(): DeviceEntity?
+
+    @Query("SELECT * FROM devices WHERE device_id = :deviceId")
+    suspend fun getDeviceById(deviceId: String): DeviceEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateDevice(device: DeviceEntity)
+
+    @Query("UPDATE devices SET is_selected = CASE WHEN device_id = :deviceId THEN 1 ELSE 0 END")
+    suspend fun setSelectedDevice(deviceId: String)
+
+    @Transaction
+    suspend fun insertAndSelectDevice(device: DeviceEntity) {
+        insertOrUpdateDevice(device.copy(isSelected = true))
+        setSelectedDevice(device.deviceId)
+    }
+
+    @Query("""
+        UPDATE devices 
+        SET last_lat = :lat, 
+            last_lon = :lon, 
+            last_speed = :speed, 
+            last_synced_timestamp = :timestamp 
+        WHERE device_id = :deviceId
+    """)
+    suspend fun updateLastKnownLocation(
+        deviceId: String,
+        lat: Double,
+        lon: Double,
+        speed: Float,
+        timestamp: Long
+    )
+
+    @Delete
+    suspend fun deleteDevice(device: DeviceEntity)
+
+    @Query("DELETE FROM devices WHERE device_id = :deviceId")
+    suspend fun deleteDeviceById(deviceId: String)
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\dao\TripDao.kt =====
+
+package com.example.safar20.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Transaction
+import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.data.local.entity.TripSummaryEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TripDao {
+
+    @Query("SELECT * FROM trip_summaries WHERE device_id = :deviceId ORDER BY start_timestamp DESC")
+    fun getTripsForDevice(deviceId: String): Flow<List<TripSummaryEntity>>
+
+    @Query("SELECT * FROM trip_summaries WHERE trip_id = :tripId")
+    suspend fun getTripById(tripId: String): TripSummaryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateTrip(trip: TripSummaryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLocationPoint(point: LocationPointEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTripPoints(points: List<LocationPointEntity>)
+
+    @Query("SELECT * FROM location_points WHERE trip_id = :tripId ORDER BY timestamp ASC")
+    fun getPointsForTrip(tripId: String): Flow<List<LocationPointEntity>>
+
+    @Query("SELECT * FROM location_points WHERE trip_id = :tripId ORDER BY timestamp ASC")
+    suspend fun getPointsListForTrip(tripId: String): List<LocationPointEntity>
+
+    @Query("SELECT MAX(timestamp) FROM location_points WHERE device_id = :deviceId")
+    suspend fun getLastSyncedTimestamp(deviceId: String): Long?
+
+    @Query("DELETE FROM trip_summaries WHERE trip_id = :tripId")
+    suspend fun deleteTripSummary(tripId: String)
+
+    @Query("DELETE FROM location_points WHERE trip_id = :tripId")
+    suspend fun deletePointsForTrip(tripId: String)
+
+    @Transaction
+    suspend fun deleteTripAndPoints(tripId: String) {
+        deletePointsForTrip(tripId)
+        deleteTripSummary(tripId)
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\entity\DeviceEntity.kt =====
+
+package com.example.safar20.data.local.entity
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "devices")
+data class DeviceEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "device_id")
+    val deviceId: String,
+
+    @ColumnInfo(name = "device_name")
+    val deviceName: String,
+
+    @ColumnInfo(name = "nostr_pub_key")
+    val nostrPubKey: String,
+
+    @ColumnInfo(name = "shared_secret_hex")
+    val sharedSecretHex: String,
+
+    @ColumnInfo(name = "sim_number")
+    val simNumber: String,
+
+    @ColumnInfo(name = "last_synced_timestamp")
+    val lastSyncedTimestamp: Long = 0L,
+
+    @ColumnInfo(name = "last_lat")
+    val lastLat: Double? = null,
+
+    @ColumnInfo(name = "last_lon")
+    val lastLon: Double? = null,
+
+    @ColumnInfo(name = "last_speed")
+    val lastSpeed: Float? = null,
+
+    @ColumnInfo(name = "is_selected")
+    val isSelected: Boolean = false
+)
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\entity\LocationPointEntity.kt =====
+
+package com.example.safar20.data.local.entity
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(
+    tableName = "location_points",
+    indices = [
+        Index(value = ["trip_id"]),
+        Index(value = ["device_id"]),
+        Index(value = ["timestamp"])
+    ]
+)
+data class LocationPointEntity(
+    @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "id")
+    val id: Long = 0L,
+
+    @ColumnInfo(name = "trip_id")
+    val tripId: String,
+
+    @ColumnInfo(name = "device_id")
+    val deviceId: String,
+
+    @ColumnInfo(name = "timestamp")
+    val timestamp: Long,
+
+    @ColumnInfo(name = "latitude")
+    val latitude: Double,
+
+    @ColumnInfo(name = "longitude")
+    val longitude: Double,
+
+    @ColumnInfo(name = "speed_kmh")
+    val speedKmh: Float,
+
+    @ColumnInfo(name = "heading")
+    val heading: Int
+)
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\local\entity\TripSummaryEntity.kt =====
+
+package com.example.safar20.data.local.entity
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "trip_summaries")
+data class TripSummaryEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "trip_id")
+    val tripId: String,
+
+    @ColumnInfo(name = "device_id")
+    val deviceId: String,
+
+    @ColumnInfo(name = "start_timestamp")
+    val startTimestamp: Long,
+
+    @ColumnInfo(name = "end_timestamp")
+    val endTimestamp: Long,
+
+    @ColumnInfo(name = "distance_km")
+    val distanceKm: Double,
+
+    @ColumnInfo(name = "duration_minutes")
+    val durationMinutes: Int,
+
+    @ColumnInfo(name = "avg_speed_kmh")
+    val avgSpeedKmh: Double,
+
+    @ColumnInfo(name = "max_speed_kmh")
+    val maxSpeedKmh: Double
+)
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\network\BinaryPacketCodec.kt =====
+
+package com.example.safar20.data.network
+
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+/**
+ * Binary Packet Codec for SAFAR 2.0 Wire Protocol.
+ * Handles encoding/decoding of 16-byte packed TripPoint structs,
+ * 20-byte live telemetry packets, 488-byte history chunks, and CRC16 checksums.
+ */
+object BinaryPacketCodec {
+
+    const val OPCODE_OPEN_SESSION: Byte = 0x01
+    const val OPCODE_LIVE_TELEMETRY: Byte = 0x02
+    const val OPCODE_HISTORY_CHUNK: Byte = 0x03
+    const val OPCODE_HISTORY_ACK: Byte = 0x04
+    const val OPCODE_HEARTBEAT: Byte = 0x05
+
+    const val TRIP_POINT_SIZE = 16
+    const val LIVE_TELEMETRY_SIZE = 21 // 1B Opcode + 2B Seq + 16B TripPoint + 2B CRC16
+    const val HISTORY_CHUNK_SIZE = 488  // 1B Opcode + 2B ChunkID + 2B TotalChunks + 1B Count + 480B Points + 2B CRC16
+
+    data class ParsedTripPoint(
+        val timestamp: Long,        // Unix Epoch Seconds (UTC)
+        val latitude: Double,       // Latitude in degrees
+        val longitude: Double,      // Longitude in degrees
+        val speedKmh: Float,        // Speed in km/h
+        val heading: Int,           // Course angle 0..359 degrees
+        val isIgnitionOn: Boolean,  // Bit 0 of flags
+        val isTripStart: Boolean,   // Bit 1 of flags
+        val isTripEnd: Boolean,     // Bit 2 of flags
+        val satCount: Int           // Bits 3..7 of flags
+    )
+
+    data class LiveTelemetryPacket(
+        val sequenceNumber: Int,
+        val tripPoint: ParsedTripPoint,
+        val isValidCrc: Boolean
+    )
+
+    data class HistoryChunkPacket(
+        val chunkId: Int,
+        val totalChunks: Int,
+        val count: Int,
+        val tripPoints: List<ParsedTripPoint>,
+        val isValidCrc: Boolean
+    )
+
+    /**
+     * Decodes a 16-byte packed TripPoint struct from raw bytes at offset.
+     * Uses Little Endian byte order matching ESP32 GCC struct layout.
+     */
+    fun decodeTripPoint(data: ByteArray, offset: Int = 0): ParsedTripPoint {
+        val buffer = ByteBuffer.wrap(data, offset, TRIP_POINT_SIZE).order(ByteOrder.LITTLE_ENDIAN)
+
+        // uint32_t timestamp (Bytes 0..3)
+        val timestamp = buffer.int.toLong() and 0xFFFFFFFFL
+
+        // int32_t lat_e7 (Bytes 4..7)
+        val latE7 = buffer.int
+        val latitude = latE7 / 10_000_000.0
+
+        // int32_t lon_e7 (Bytes 8..11)
+        val lonE7 = buffer.int
+        val longitude = lonE7 / 10_000_000.0
+
+        // uint16_t speed_decideg (Bytes 12..13) -> Speed in km/h * 10
+        val speedDecideg = buffer.short.toInt() and 0xFFFF
+        val speedKmh = speedDecideg / 10.0f
+
+        // uint8_t heading_div2 (Byte 14) -> Heading / 2
+        val headingDiv2 = buffer.get().toInt() and 0xFF
+        val heading = (headingDiv2 * 2) % 360
+
+        // uint8_t flags (Byte 15)
+        val flags = buffer.get().toInt() and 0xFF
+        val isIgnitionOn = (flags and 0x01) != 0
+        val isTripStart = (flags and 0x02) != 0
+        val isTripEnd = (flags and 0x04) != 0
+        val satCount = (flags shr 3) and 0x1F
+
+        return ParsedTripPoint(
+            timestamp = timestamp,
+            latitude = latitude,
+            longitude = longitude,
+            speedKmh = speedKmh,
+            heading = heading,
+            isIgnitionOn = isIgnitionOn,
+            isTripStart = isTripStart,
+            isTripEnd = isTripEnd,
+            satCount = satCount
+        )
+    }
+
+    /**
+     * Encodes a ParsedTripPoint into a 16-byte packed byte array (Little Endian).
+     */
+    fun encodeTripPoint(point: ParsedTripPoint): ByteArray {
+        val buffer = ByteBuffer.allocate(TRIP_POINT_SIZE).order(ByteOrder.LITTLE_ENDIAN)
+
+        buffer.putInt((point.timestamp and 0xFFFFFFFFL).toInt())
+        buffer.putInt((point.latitude * 10_000_000.0).toInt())
+        buffer.putInt((point.longitude * 10_000_000.0).toInt())
+        buffer.putShort(((point.speedKmh * 10.0f).toInt() and 0xFFFF).toShort())
+        buffer.put((point.heading / 2).toByte())
+
+        var flags = 0
+        if (point.isIgnitionOn) flags = flags or 0x01
+        if (point.isTripStart) flags = flags or 0x02
+        if (point.isTripEnd) flags = flags or 0x04
+        flags = flags or ((point.satCount and 0x1F) shl 3)
+
+        buffer.put(flags.toByte())
+
+        return buffer.array()
+    }
+
+    /**
+     * Decodes 20/21-byte Live Telemetry Packet (0x02).
+     */
+    fun decodeLiveTelemetry(data: ByteArray): LiveTelemetryPacket? {
+        if (data.size < 19) return null
+
+        val offset = if (data[0] == OPCODE_LIVE_TELEMETRY) 1 else 0
+        if (data.size < offset + 18) return null
+
+        val buffer = ByteBuffer.wrap(data, offset, 2).order(ByteOrder.LITTLE_ENDIAN)
+        val seqNum = buffer.short.toInt() and 0xFFFF
+
+        val tripPoint = decodeTripPoint(data, offset + 2)
+
+        val isValidCrc = if (data.size >= offset + 20) {
+            val crcCalculated = computeCrc16(data, 0, data.size - 2)
+            val crcReceived = ((data[data.size - 2].toInt() and 0xFF) or ((data[data.size - 1].toInt() and 0xFF) shl 8))
+            crcCalculated == crcReceived
+        } else true
+
+        return LiveTelemetryPacket(
+            sequenceNumber = seqNum,
+            tripPoint = tripPoint,
+            isValidCrc = isValidCrc
+        )
+    }
+
+    /**
+     * Encodes Live Telemetry Packet (0x02).
+     */
+    fun encodeLiveTelemetry(sequenceNumber: Int, point: ParsedTripPoint): ByteArray {
+        val payload = ByteBuffer.allocate(LIVE_TELEMETRY_SIZE).order(ByteOrder.LITTLE_ENDIAN)
+        payload.put(OPCODE_LIVE_TELEMETRY)
+        payload.putShort((sequenceNumber and 0xFFFF).toShort())
+
+        val pointBytes = encodeTripPoint(point)
+        payload.put(pointBytes)
+
+        val crc = computeCrc16(payload.array(), 0, LIVE_TELEMETRY_SIZE - 2)
+        payload.putShort(crc.toShort())
+
+        return payload.array()
+    }
+
+    /**
+     * Decodes 488-byte History Chunk Packet (0x03).
+     */
+    fun decodeHistoryChunk(data: ByteArray): HistoryChunkPacket? {
+        if (data.size < 6) return null
+
+        val offset = if (data[0] == OPCODE_HISTORY_CHUNK) 1 else 0
+        val buffer = ByteBuffer.wrap(data, offset, 5).order(ByteOrder.LITTLE_ENDIAN)
+
+        val chunkId = buffer.short.toInt() and 0xFFFF
+        val totalChunks = buffer.short.toInt() and 0xFFFF
+        val count = buffer.get().toInt() and 0xFF
+
+        val pointsList = mutableListOf<ParsedTripPoint>()
+        var pointOffset = offset + 5
+
+        for (i in 0 until minOf(count, 30)) {
+            if (pointOffset + TRIP_POINT_SIZE <= data.size) {
+                pointsList.add(decodeTripPoint(data, pointOffset))
+                pointOffset += TRIP_POINT_SIZE
+            }
+        }
+
+        val isValidCrc = if (data.size >= HISTORY_CHUNK_SIZE) {
+            val crcCalculated = computeCrc16(data, 0, data.size - 2)
+            val crcReceived = ((data[data.size - 2].toInt() and 0xFF) or ((data[data.size - 1].toInt() and 0xFF) shl 8))
+            crcCalculated == crcReceived
+        } else true
+
+        return HistoryChunkPacket(
+            chunkId = chunkId,
+            totalChunks = totalChunks,
+            count = count,
+            tripPoints = pointsList,
+            isValidCrc = isValidCrc
+        )
+    }
+
+    /**
+     * Encodes 488-byte History Chunk Packet (0x03).
+     */
+    fun encodeHistoryChunk(chunkId: Int, totalChunks: Int, points: List<ParsedTripPoint>): ByteArray {
+        val buffer = ByteBuffer.allocate(HISTORY_CHUNK_SIZE).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(OPCODE_HISTORY_CHUNK)
+        buffer.putShort((chunkId and 0xFFFF).toShort())
+        buffer.putShort((totalChunks and 0xFFFF).toShort())
+
+        val count = minOf(points.size, 30)
+        buffer.put(count.toByte())
+
+        for (i in 0 until count) {
+            buffer.put(encodeTripPoint(points[i]))
+        }
+
+        val remainingBytes = 480 - (count * TRIP_POINT_SIZE)
+        if (remainingBytes > 0) {
+            buffer.put(ByteArray(remainingBytes))
+        }
+
+        val crc = computeCrc16(buffer.array(), 0, HISTORY_CHUNK_SIZE - 2)
+        buffer.putShort(crc.toShort())
+
+        return buffer.array()
+    }
+
+    /**
+     * Calculates CRC16-CCITT (0x1021) polynomial checksum.
+     */
+    fun computeCrc16(data: ByteArray, offset: Int = 0, length: Int = data.size): Int {
+        var crc = 0xFFFF
+        for (i in offset until (offset + length)) {
+            crc = crc xor ((data[i].toInt() and 0xFF) shl 8)
+            for (j in 0 until 8) {
+                crc = if ((crc and 0x8000) != 0) {
+                    (crc shl 1) xor 0x1021
+                } else {
+                    crc shl 1
+                }
+            }
+        }
+        return crc and 0xFFFF
+    }
+
+    /**
+     * Verifies if last 2 bytes of payload match calculated CRC16.
+     */
+    fun verifyCrc16(data: ByteArray): Boolean {
+        if (data.size < 2) return false
+        val calculated = computeCrc16(data, 0, data.size - 2)
+        val received = ((data[data.size - 2].toInt() and 0xFF) or ((data[data.size - 1].toInt() and 0xFF) shl 8))
+        return calculated == received
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\network\MockEsp32Simulator.kt =====
+
+package com.example.safar20.data.network
+
+import com.example.safar20.data.local.SafarDatabase
+import com.example.safar20.data.local.entity.DeviceEntity
+import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.data.local.entity.TripSummaryEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
+
+/**
+ * Realistic Mock ESP32 Telemetry Simulator for SAFAR 2.0.
+ * Emits 1 Hz 16-byte binary live telemetry (accelerating from 0 to 85 km/h along Nagpur roads)
+ * and seeds 2 realistic historical rides into RoomDB for Phase 2 & Phase 3 UI testing.
+ */
+object MockEsp32Simulator {
+
+    private var simulationJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.Default)
+
+    private val _liveTelemetryFlow = MutableSharedFlow<BinaryPacketCodec.ParsedTripPoint>(extraBufferCapacity = 64)
+    val liveTelemetryFlow: SharedFlow<BinaryPacketCodec.ParsedTripPoint> = _liveTelemetryFlow.asSharedFlow()
+
+    private val _rawPacketFlow = MutableSharedFlow<ByteArray>(extraBufferCapacity = 64)
+    val rawPacketFlow: SharedFlow<ByteArray> = _rawPacketFlow.asSharedFlow()
+
+    // Nagpur Center (Zero Mile Monument) starting coordinates
+    private const val START_LAT = 21.1458
+    private const val START_LON = 79.0882
+
+    private var currentLat = START_LAT
+    private var currentLon = START_LON
+    private var currentSpeedKmh = 0.0f
+    private var headingDegrees = 210 // Heading South-West towards Wardha Road / Airport
+    private var sequenceNumber = 1
+
+    fun isSimulating(): Boolean = simulationJob?.isActive == true
+
+    /**
+     * Starts emitting 1 Hz live telemetry binary packets.
+     */
+    fun startSimulation() {
+        if (isSimulating()) return
+
+        currentLat = START_LAT
+        currentLon = START_LON
+        currentSpeedKmh = 0.0f
+        headingDegrees = 210
+
+        simulationJob = scope.launch {
+            var secondCount = 0
+
+            while (isActive) {
+                secondCount++
+                val nowSec = System.currentTimeMillis() / 1000
+
+                // Simulate realistic acceleration and cruising speed up to 85 km/h
+                if (secondCount <= 18) {
+                    // Smooth acceleration from 0 to 82 km/h in 18 seconds
+                    currentSpeedKmh += 4.5f + (Math.random() * 0.8f).toFloat()
+                } else if (secondCount in 19..40) {
+                    // Cruising on highway around 72..85 km/h
+                    val variation = (Math.random() * 4.0 - 2.0).toFloat()
+                    currentSpeedKmh = (currentSpeedKmh + variation).coerceIn(68.0f, 85.0f)
+                } else if (secondCount in 41..48) {
+                    // Slowing down for roundabout/turn
+                    currentSpeedKmh = (currentSpeedKmh - 6.0f).coerceAtLeast(28.0f)
+                    headingDegrees = (headingDegrees + 4) % 360
+                } else {
+                    // Re-accelerating on open road
+                    currentSpeedKmh = (currentSpeedKmh + 3.5f).coerceAtMost(83.5f)
+                    if (secondCount > 70) secondCount = 19 // Loop cruising cycle
+                }
+
+                // Calculate coordinate shift based on velocity (V / 3.6 meters/sec)
+                val metersMoved = (currentSpeedKmh / 3.6f).toDouble()
+                val radHeading = Math.toRadians(headingDegrees.toDouble())
+
+                // 1 deg latitude ≈ 111,000 meters
+                val deltaLat = (metersMoved / 111_000.0) * cos(radHeading)
+                val deltaLon = (metersMoved / (111_000.0 * cos(Math.toRadians(currentLat)))) * sin(radHeading)
+
+                currentLat += deltaLat
+                currentLon += deltaLon
+
+                val parsedPoint = BinaryPacketCodec.ParsedTripPoint(
+                    timestamp = nowSec,
+                    latitude = currentLat,
+                    longitude = currentLon,
+                    speedKmh = currentSpeedKmh,
+                    heading = headingDegrees,
+                    isIgnitionOn = true,
+                    isTripStart = (secondCount == 1),
+                    isTripEnd = false,
+                    satCount = 14
+                )
+
+                val rawPacket = BinaryPacketCodec.encodeLiveTelemetry(sequenceNumber, parsedPoint)
+                sequenceNumber = (sequenceNumber + 1) and 0xFFFF
+
+                _liveTelemetryFlow.emit(parsedPoint)
+                _rawPacketFlow.emit(rawPacket)
+
+                delay(1000) // 1 Hz tick
+            }
+        }
+    }
+
+    /**
+     * Stops live telemetry emission.
+     */
+    fun stopSimulation() {
+        simulationJob?.cancel()
+        simulationJob = null
+    }
+
+    /**
+     * Seeds 2 sample historical rides and a default motorcycle into RoomDB if empty.
+     */
+    suspend fun seedSampleTrips(db: SafarDatabase, deviceId: String = "SAFAR_01") {
+        val deviceDao = db.deviceDao()
+        val tripDao = db.tripDao()
+
+        // 1. Seed Device if not present
+        val existingDevice = deviceDao.getDeviceById(deviceId)
+        if (existingDevice == null) {
+            deviceDao.insertOrUpdateDevice(
+                DeviceEntity(
+                    deviceId = deviceId,
+                    deviceName = "Royal Enfield Classic 350",
+                    nostrPubKey = "4d8a1c92b8e3f7a1029c83b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4",
+                    sharedSecretHex = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+                    simNumber = "+919876543210",
+                    lastSyncedTimestamp = System.currentTimeMillis() / 1000,
+                    lastLat = 21.1458,
+                    lastLon = 79.0882,
+                    lastSpeed = 42.5f,
+                    isSelected = true
+                )
+            )
+        }
+
+        // 2. Check if trips already exist
+        val existingTrips = tripDao.getTripsForDevice(deviceId).firstOrNull()
+        if (!existingTrips.isNullOrEmpty()) return
+
+        val nowSec = System.currentTimeMillis() / 1000
+        val oneDaySec = 86400L
+
+        // --- RIDE 1: Kamptee Highway Morning Ride ---
+        val ride1Start = nowSec - oneDaySec - 7200 // Yesterday 06:30 AM approx
+        val ride1End = ride1Start + 2700 // 45 mins duration
+        val trip1Id = "TRIP_NAGPUR_01"
+
+        val trip1Summary = TripSummaryEntity(
+            tripId = trip1Id,
+            deviceId = deviceId,
+            startTimestamp = ride1Start,
+            endTimestamp = ride1End,
+            distanceKm = 24.5,
+            durationMinutes = 45,
+            avgSpeedKmh = 32.6,
+            maxSpeedKmh = 82.0
+        )
+
+        val trip1Points = mutableListOf<LocationPointEntity>()
+        var t1Lat = 21.1500
+        var t1Lon = 79.0900
+        val pointCount1 = 25
+
+        for (i in 0 until pointCount1) {
+            val progress = i.toDouble() / (pointCount1 - 1)
+            t1Lat += 0.0028 + (Math.random() * 0.0004)
+            t1Lon += 0.0024 + (Math.random() * 0.0003)
+            val speed = when {
+                i < 3 -> (i + 1) * 15.0f
+                i in 4..20 -> (55.0 + Math.sin(i.toDouble()) * 22.0).toFloat().coerceIn(35f, 82f)
+                else -> (pointCount1 - i) * 12.0f
+            }
+
+            trip1Points.add(
+                LocationPointEntity(
+                    tripId = trip1Id,
+                    deviceId = deviceId,
+                    timestamp = ride1Start + (progress * 2700).toLong(),
+                    latitude = t1Lat,
+                    longitude = t1Lon,
+                    speedKmh = speed,
+                    heading = 45 + (i * 2) % 30
+                )
+            )
+        }
+
+        // --- RIDE 2: Airport Expressway Sunset Commute ---
+        val ride2Start = nowSec - (2 * oneDaySec) - 3600 // 2 days ago evening
+        val ride2End = ride2Start + 2100 // 35 mins duration
+        val trip2Id = "TRIP_NAGPUR_02"
+
+        val trip2Summary = TripSummaryEntity(
+            tripId = trip2Id,
+            deviceId = deviceId,
+            startTimestamp = ride2Start,
+            endTimestamp = ride2End,
+            distanceKm = 18.2,
+            durationMinutes = 35,
+            avgSpeedKmh = 31.2,
+            maxSpeedKmh = 76.5
+        )
+
+        val trip2Points = mutableListOf<LocationPointEntity>()
+        var t2Lat = 21.1400
+        var t2Lon = 79.0800
+        val pointCount2 = 20
+
+        for (i in 0 until pointCount2) {
+            val progress = i.toDouble() / (pointCount2 - 1)
+            t2Lat -= 0.0035 + (Math.random() * 0.0003)
+            t2Lon -= 0.0015 + (Math.random() * 0.0002)
+            val speed = when {
+                i < 3 -> (i + 1) * 18.0f
+                i in 4..16 -> (50.0 + Math.cos(i.toDouble()) * 20.0).toFloat().coerceIn(30f, 76.5f)
+                else -> (pointCount2 - i) * 10.0f
+            }
+
+            trip2Points.add(
+                LocationPointEntity(
+                    tripId = trip2Id,
+                    deviceId = deviceId,
+                    timestamp = ride2Start + (progress * 2100).toLong(),
+                    latitude = t2Lat,
+                    longitude = t2Lon,
+                    speedKmh = speed,
+                    heading = 215 + (i * 3) % 25
+                )
+            )
+        }
+
+        // Insert into Room
+        tripDao.insertOrUpdateTrip(trip1Summary)
+        tripDao.insertTripPoints(trip1Points)
+
+        tripDao.insertOrUpdateTrip(trip2Summary)
+        tripDao.insertTripPoints(trip2Points)
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\data\repository\SafarRepository.kt =====
+
+package com.example.safar20.data.repository
+
+import android.content.Context
+import android.net.Uri
+import com.example.safar20.data.local.PreferencesDataStore
+import com.example.safar20.data.local.SafarDatabase
+import com.example.safar20.data.local.entity.DeviceEntity
+import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.data.local.entity.TripSummaryEntity
+import com.example.safar20.data.network.BinaryPacketCodec
+import com.example.safar20.data.network.MockEsp32Simulator
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+
+/**
+ * Unified Repository for SAFAR 2.0.
+ * Coordinates RoomDB DAOs, PreferencesDataStore, QR Pairing parser,
+ * and Mock ESP32 Telemetry Simulator.
+ */
+class SafarRepository(
+    private val database: SafarDatabase,
+    private val preferencesDataStore: PreferencesDataStore
+) {
+
+    private val deviceDao = database.deviceDao()
+    private val tripDao = database.tripDao()
+
+    // --- Device Management Flows ---
+    val allDevices: Flow<List<DeviceEntity>> = deviceDao.getAllDevices()
+    val selectedDevice: Flow<DeviceEntity?> = deviceDao.getSelectedDevice()
+
+    // --- Preferences Flows ---
+    val isDarkTheme: Flow<Boolean> = preferencesDataStore.isDarkTheme
+    val speedUnit: Flow<String> = preferencesDataStore.speedUnit
+
+    // --- Live Telemetry Stream ---
+    val liveTelemetryStream: SharedFlow<BinaryPacketCodec.ParsedTripPoint> = MockEsp32Simulator.liveTelemetryFlow
+
+    // --- Trip History Flows ---
+    fun getTripsForDevice(deviceId: String): Flow<List<TripSummaryEntity>> {
+        return tripDao.getTripsForDevice(deviceId)
+    }
+
+    fun getPointsForTrip(tripId: String): Flow<List<LocationPointEntity>> {
+        return tripDao.getPointsForTrip(tripId)
+    }
+
+    suspend fun getPointsListForTrip(tripId: String): List<LocationPointEntity> {
+        return tripDao.getPointsListForTrip(tripId)
+    }
+
+    // --- Actions ---
+    suspend fun setSelectedDevice(deviceId: String) {
+        deviceDao.setSelectedDevice(deviceId)
+    }
+
+    suspend fun setDarkTheme(isDark: Boolean) {
+        preferencesDataStore.setDarkTheme(isDark)
+    }
+
+    suspend fun setSpeedUnit(unit: String) {
+        preferencesDataStore.setSpeedUnit(unit)
+    }
+
+    suspend fun toggleSpeedUnit() {
+        preferencesDataStore.toggleSpeedUnit()
+    }
+
+    // --- Simulator Control ---
+    fun startSimulator() {
+        MockEsp32Simulator.startSimulation()
+    }
+
+    fun stopSimulator() {
+        MockEsp32Simulator.stopSimulation()
+    }
+
+    fun isSimulatorRunning(): Boolean = MockEsp32Simulator.isSimulating()
+
+    suspend fun seedMockData(deviceId: String = "SAFAR_01") {
+        MockEsp32Simulator.seedSampleTrips(database, deviceId)
+    }
+
+    // --- QR Pairing & Device Add ---
+    /**
+     * Parses QR Payload URI:
+     * safar://pair?id=SAFAR_01&name=Classic350&pub=<64_HEX_NOSTR>&sec=<64_HEX_SECRET>&sim=+919876543210
+     */
+    suspend fun parseAndPairQrUri(qrUriString: String): Result<DeviceEntity> {
+        return try {
+            val uri = Uri.parse(qrUriString)
+            if (uri.scheme != "safar" || uri.host != "pair") {
+                return Result.failure(IllegalArgumentException("Invalid QR Code Scheme. Expected safar://pair"))
+            }
+
+            val deviceId = uri.getQueryParameter("id") ?: uri.getQueryParameter("device_id")
+            if (deviceId.isNullOrEmpty()) {
+                return Result.failure(IllegalArgumentException("Device ID missing from QR Code"))
+            }
+
+            val deviceName = uri.getQueryParameter("name") ?: uri.getQueryParameter("device_name") ?: "RE Classic 350"
+            val pubKey = uri.getQueryParameter("pub") ?: uri.getQueryParameter("nostr_pub_key") ?: ""
+            val secretHex = uri.getQueryParameter("sec") ?: uri.getQueryParameter("shared_secret") ?: ""
+            val simNumber = uri.getQueryParameter("sim") ?: uri.getQueryParameter("sim_number") ?: ""
+
+            val device = DeviceEntity(
+                deviceId = deviceId,
+                deviceName = deviceName,
+                nostrPubKey = pubKey,
+                sharedSecretHex = secretHex,
+                simNumber = simNumber,
+                lastSyncedTimestamp = System.currentTimeMillis() / 1000,
+                isSelected = true
+            )
+
+            deviceDao.insertAndSelectDevice(device)
+            Result.success(device)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addManualDevice(
+        deviceId: String,
+        deviceName: String,
+        simNumber: String,
+        pubKey: String = "",
+        secretHex: String = ""
+    ): DeviceEntity {
+        val device = DeviceEntity(
+            deviceId = deviceId,
+            deviceName = deviceName,
+            nostrPubKey = pubKey,
+            sharedSecretHex = secretHex,
+            simNumber = simNumber,
+            lastSyncedTimestamp = System.currentTimeMillis() / 1000,
+            isSelected = true
+        )
+        deviceDao.insertAndSelectDevice(device)
+        return device
+    }
+
+    suspend fun deleteDevice(deviceId: String) {
+        deviceDao.deleteDeviceById(deviceId)
+    }
+
+    suspend fun updateLastKnownLocation(
+        deviceId: String,
+        lat: Double,
+        lon: Double,
+        speed: Float,
+        timestamp: Long
+    ) {
+        deviceDao.updateLastKnownLocation(deviceId, lat, lon, speed, timestamp)
+    }
+
+    companion object {
+        @Volatile
+        private var INSTANCE: SafarRepository? = null
+
+        fun getInstance(context: Context): SafarRepository {
+            return INSTANCE ?: synchronized(this) {
+                val db = SafarDatabase.getDatabase(context)
+                val prefs = PreferencesDataStore(context)
+                val instance = SafarRepository(db, prefs)
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\components\QrPairingDialog.kt =====
+
+package com.example.safar20.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SignalRed
+import com.example.safar20.ui.theme.WarmIvory
+
+/**
+ * QR Code Pairing Dialog supporting QR payload parsing, manual entry,
+ * and a 1-tap "Load Demo Classic 350" preset.
+ */
+@Composable
+fun QrPairingDialog(
+    onDismiss: () -> Unit,
+    onPairQrUri: (String) -> Unit,
+    onPairManual: (id: String, name: String, sim: String) -> Unit
+) {
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = QR Payload, 1 = Manual
+
+    var qrPayloadText by remember { mutableStateOf("") }
+    var manualId by remember { mutableStateOf("") }
+    var manualName by remember { mutableStateOf("") }
+    var manualSim by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val demoPayload = "safar://pair?id=SAFAR_01&name=RE%20Classic%20350&pub=4d8a1c92b8e3f7a1029c83b4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4&sec=a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90&sim=+919876543210"
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = GunmetalGauge,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(16.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Dialog Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = "Pair Tracker",
+                        tint = RoyalBrass
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PAIR SAFAR TRACKER",
+                        color = WarmIvory,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tabs: QR Scan vs Manual Entry
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = GunmetalGauge,
+                    contentColor = RoyalBrass
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("QR Payload", color = if (selectedTab == 0) RoyalBrass else MutedPewter) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Manual Entry", color = if (selectedTab == 1) RoyalBrass else MutedPewter) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (selectedTab == 0) {
+                    // QR Payload Tab
+                    OutlinedTextField(
+                        value = qrPayloadText,
+                        onValueChange = {
+                            qrPayloadText = it
+                            errorMessage = null
+                        },
+                        label = { Text("Paste QR URI (safar://pair?...)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RoyalBrass,
+                            unfocusedBorderColor = BronzeRim,
+                            focusedTextColor = WarmIvory,
+                            unfocusedTextColor = WarmIvory
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Demo Tracker Preset Button
+                    Button(
+                        onClick = {
+                            qrPayloadText = demoPayload
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BronzeRim
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QrCode2,
+                            contentDescription = "Demo Tracker",
+                            tint = RoyalBrass
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("⚡ Load Demo Classic 350 Tracker", color = WarmIvory, fontSize = 12.sp)
+                    }
+                } else {
+                    // Manual Entry Tab
+                    OutlinedTextField(
+                        value = manualId,
+                        onValueChange = { manualId = it },
+                        label = { Text("Device ID (e.g. SAFAR_01)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RoyalBrass,
+                            unfocusedBorderColor = BronzeRim,
+                            focusedTextColor = WarmIvory,
+                            unfocusedTextColor = WarmIvory
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = manualName,
+                        onValueChange = { manualName = it },
+                        label = { Text("Device Name (e.g. Royal Enfield Classic 350)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RoyalBrass,
+                            unfocusedBorderColor = BronzeRim,
+                            focusedTextColor = WarmIvory,
+                            unfocusedTextColor = WarmIvory
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = manualSim,
+                        onValueChange = { manualSim = it },
+                        label = { Text("GSM SIM Number (e.g. +919876543210)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RoyalBrass,
+                            unfocusedBorderColor = BronzeRim,
+                            focusedTextColor = WarmIvory,
+                            unfocusedTextColor = WarmIvory
+                        )
+                    )
+                }
+
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage!!,
+                        color = SignalRed,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel", color = MutedPewter)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            if (selectedTab == 0) {
+                                if (qrPayloadText.isBlank()) {
+                                    errorMessage = "Please enter or load a valid QR payload URI"
+                                } else {
+                                    onPairQrUri(qrPayloadText)
+                                }
+                            } else {
+                                if (manualId.isBlank() || manualName.isBlank()) {
+                                    errorMessage = "Device ID and Name are required"
+                                } else {
+                                    onPairManual(manualId, manualName, manualSim)
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = RoyalBrass
+                        )
+                    ) {
+                        Text("PAIR NOW", color = GunmetalGauge, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\components\RideTicketCard.kt =====
+
+package com.example.safar20.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.data.local.UnitConverter
+import com.example.safar20.data.local.entity.TripSummaryEntity
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.WarmIvory
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * Vintage Highway Logbook Ticket Card displaying ride details, duration badge,
+ * and 3-column brass stat grid with unit conversion support.
+ */
+@Composable
+fun RideTicketCard(
+    trip: TripSummaryEntity,
+    speedUnit: String = "km/h",
+    isSelected: Boolean = false,
+    onCardClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (isSelected) RoyalBrass else BronzeRim
+    val borderWidth = if (isSelected) 2.dp else 1.dp
+
+    val formattedTimeRange = formatTimeRange(trip.startTimestamp, trip.endTimestamp)
+    val rideNumber = trip.tripId.takeLast(2).uppercase()
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(borderWidth, borderColor, shape = RoundedCornerShape(12.dp))
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = GunmetalGauge
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp)
+        ) {
+            // Header Row: Ride ID + Time Range + Duration Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "RIDE #$rideNumber",
+                        color = RoyalBrass,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = formattedTimeRange,
+                        color = WarmIvory,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Duration Badge
+                Box(
+                    modifier = Modifier
+                        .background(BronzeRim.copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${trip.durationMinutes} MINS",
+                        color = WarmIvory,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = BronzeRim.copy(alpha = 0.5f), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 3-Column Brass Stat Grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Column 1: Distance
+                StatBox(
+                    label = "DISTANCE",
+                    value = UnitConverter.formatDistance(trip.distanceKm, speedUnit, decimals = 1),
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Column 2: Avg Speed
+                StatBox(
+                    label = "AVG SPEED",
+                    value = UnitConverter.formatSpeed(trip.avgSpeedKmh, speedUnit, decimals = 0),
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Column 3: Max Speed
+                StatBox(
+                    label = "MAX SPEED",
+                    value = UnitConverter.formatSpeed(trip.maxSpeedKmh, speedUnit, decimals = 0),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatBox(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .background(BronzeRim.copy(alpha = 0.35f), shape = RoundedCornerShape(8.dp))
+            .border(1.dp, BronzeRim.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
+            .padding(vertical = 8.dp, horizontal = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                color = MutedPewter,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                color = WarmIvory,
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+private fun formatTimeRange(startTimestampSec: Long, endTimestampSec: Long): String {
+    val timeFormat = SimpleDateFormat("hh:mm a", Locale.US)
+    val startTime = timeFormat.format(Date(startTimestampSec * 1000))
+    val endTime = timeFormat.format(Date(endTimestampSec * 1000))
+    return "$startTime → $endTime"
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\components\TelemetryHeaderPill.kt =====
+
+package com.example.safar20.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.TwoWheeler
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.PhosphorGreen
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SignalRed
+import com.example.safar20.ui.theme.WarmIvory
+
+enum class ConnectionState {
+    P2P_DIRECT,
+    SIMULATOR_SYNCING,
+    PARKED,
+    OFFLINE
+}
+
+/**
+ * Top Cockpit Bar with Bike Selector Pill (Left) and Live P2P Connection Status Badge (Right).
+ */
+@Composable
+fun TelemetryHeaderPill(
+    activeDeviceName: String = "RE Classic 350",
+    connectionState: ConnectionState = ConnectionState.P2P_DIRECT,
+    latencyMs: Int? = 38,
+    syncProgressPercent: Int? = null,
+    lastSeenText: String? = "10m ago",
+    onDeviceClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left Pill — Active Motorcycle Dropdown Selector
+        Row(
+            modifier = Modifier
+                .background(GunmetalGauge, shape = RoundedCornerShape(20.dp))
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(20.dp))
+                .clickable { onDeviceClick() }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.TwoWheeler,
+                contentDescription = "Motorcycle",
+                tint = RoyalBrass,
+                modifier = Modifier.size(16.dp)
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = activeDeviceName,
+                color = WarmIvory,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = "Select Device",
+                tint = MutedPewter,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        // Right Pill — Live P2P / Telemetry Status Badge
+        val (dotColor, badgeText) = when (connectionState) {
+            ConnectionState.P2P_DIRECT -> {
+                val msText = if (latencyMs != null) " (${latencyMs}ms)" else ""
+                PhosphorGreen to "P2P DIRECT$msText"
+            }
+            ConnectionState.SIMULATOR_SYNCING -> {
+                val percentText = if (syncProgressPercent != null) " ($syncProgressPercent%)" else ""
+                RoyalBrass to "SIMULATOR$percentText"
+            }
+            ConnectionState.PARKED -> {
+                val lastText = if (!lastSeenText.isNullOrEmpty()) " ($lastSeenText)" else ""
+                MutedPewter to "PARKED$lastText"
+            }
+            ConnectionState.OFFLINE -> {
+                SignalRed to "OFFLINE"
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .background(GunmetalGauge, shape = RoundedCornerShape(20.dp))
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(20.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Glowing Status Dot
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(dotColor, shape = CircleShape)
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Text(
+                text = badgeText.uppercase(),
+                color = dotColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\components\TripperSpeedometer.kt =====
+
+package com.example.safar20.ui.components
+
+import android.graphics.Paint
+import android.graphics.Typeface
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.data.local.UnitConverter
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SignalRed
+import com.example.safar20.ui.theme.WarmIvory
+import kotlin.math.cos
+import kotlin.math.sin
+
+/**
+ * Royal Enfield Tripper Dash inspired circular Speedometer Gauge.
+ * Features double metallic outer bezel, 0-160 km/h dial ticks with redline above 120 km/h,
+ * bouncy mechanical needle animation, digital speed readout, and rolling ODO counter box.
+ */
+@Composable
+fun TripperSpeedometer(
+    speedKmh: Float,
+    unit: String = "km/h",
+    odoDistanceKm: Double = 0.0,
+    gaugeSize: Dp = 260.dp,
+    modifier: Modifier = Modifier
+) {
+    // Smooth bouncy spring mechanical needle sweep
+    val animatedSpeed by animateFloatAsState(
+        targetValue = speedKmh.coerceIn(0f, 160f),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "NeedleSweep"
+    )
+
+    val convertedSpeedInt = UnitConverter.convertSpeed(animatedSpeed, unit).toInt()
+    val speedUnitLabel = UnitConverter.getSpeedUnitLabel(unit)
+    val formattedOdo = UnitConverter.formatDistance(odoDistanceKm, unit)
+
+    Box(
+        modifier = modifier.size(gaugeSize),
+        contentAlignment = Alignment.Center
+    ) {
+        // Canvas Gauge (Outer bezel, dial face, ticks, and sweeping needle)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val outerRadius = size.width / 2f - 8.dp.toPx()
+
+            // 1. Dial Face Base
+            drawCircle(
+                color = GunmetalGauge,
+                radius = outerRadius,
+                center = center
+            )
+
+            // 2. Outer Double Metallic Bezel
+            drawCircle(
+                color = BronzeRim,
+                radius = outerRadius,
+                center = center,
+                style = Stroke(width = 6.dp.toPx())
+            )
+            drawCircle(
+                color = RoyalBrass,
+                radius = outerRadius - 4.dp.toPx(),
+                center = center,
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+
+            // 3. Gauge Background Arcs (135° to 405°, total 270°)
+            val startAngle = 135f
+            val totalSweep = 270f
+            val normalSweep = totalSweep * (120f / 160f) // 0 to 120 km/h
+            val redlineSweep = totalSweep * (40f / 160f)  // 120 to 160 km/h
+
+            val arcRadius = outerRadius - 16.dp.toPx()
+            val arcSize = Size(arcRadius * 2, arcRadius * 2)
+            val arcTopLeft = Offset(center.x - arcRadius, center.y - arcRadius)
+
+            // Normal Arc (0 - 120)
+            drawArc(
+                color = BronzeRim,
+                startAngle = startAngle,
+                sweepAngle = normalSweep,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
+                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // Redline Arc (120 - 160)
+            drawArc(
+                color = SignalRed,
+                startAngle = startAngle + normalSweep,
+                sweepAngle = redlineSweep,
+                useCenter = false,
+                topLeft = arcTopLeft,
+                size = arcSize,
+                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // 4. Dial Ticks & Numbers
+            drawDialTicksAndLabels(
+                center = center,
+                radius = outerRadius - 22.dp.toPx(),
+                startAngle = startAngle,
+                totalSweep = totalSweep
+            )
+
+            // 5. Sweeping Mechanical Needle
+            val needleAngle = startAngle + (animatedSpeed / 160f) * totalSweep
+            val needleRad = Math.toRadians(needleAngle.toDouble())
+            val needleLength = outerRadius - 32.dp.toPx()
+
+            val needleEnd = Offset(
+                x = center.x + (needleLength * cos(needleRad)).toFloat(),
+                y = center.y + (needleLength * sin(needleRad)).toFloat()
+            )
+
+            drawLine(
+                color = RoyalBrass,
+                start = center,
+                end = needleEnd,
+                strokeWidth = 3.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+
+            // Needle Center Cap
+            drawCircle(
+                color = GunmetalGauge,
+                radius = 12.dp.toPx(),
+                center = center
+            )
+            drawCircle(
+                color = RoyalBrass,
+                radius = 12.dp.toPx(),
+                center = center,
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+
+        // Center Digital Readout & Bottom Mechanical ODO Box
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(top = 18.dp)
+        ) {
+            Text(
+                text = "$convertedSpeedInt",
+                color = WarmIvory,
+                fontSize = 46.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Text(
+                text = speedUnitLabel.uppercase(),
+                color = RoyalBrass,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Mechanical Odometer Box
+            Box(
+                modifier = Modifier
+                    .background(GunmetalGauge, shape = RoundedCornerShape(4.dp))
+                    .border(1.dp, BronzeRim, shape = RoundedCornerShape(4.dp))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "TRIP $formattedOdo",
+                    color = WarmIvory,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+private fun DrawScope.drawDialTicksAndLabels(
+    center: Offset,
+    radius: Float,
+    startAngle: Float,
+    totalSweep: Float
+) {
+    for (i in 0..160 step 10) {
+        val speedRatio = i / 160f
+        val tickAngle = startAngle + (speedRatio * totalSweep)
+        val tickRad = Math.toRadians(tickAngle.toDouble())
+
+        val isMajor = (i % 20 == 0)
+        val isRedline = (i >= 120)
+
+        val tickLength = if (isMajor) 12.dp.toPx() else 6.dp.toPx()
+        val tickWidth = if (isMajor) 2.5.dp.toPx() else 1.2.dp.toPx()
+        val tickColor = if (isRedline) SignalRed else if (isMajor) RoyalBrass else BronzeRim
+
+        val innerPt = Offset(
+            x = center.x + ((radius - tickLength) * cos(tickRad)).toFloat(),
+            y = center.y + ((radius - tickLength) * sin(tickRad)).toFloat()
+        )
+        val outerPt = Offset(
+            x = center.x + (radius * cos(tickRad)).toFloat(),
+            y = center.y + (radius * sin(tickRad)).toFloat()
+        )
+
+        drawLine(
+            color = tickColor,
+            start = innerPt,
+            end = outerPt,
+            strokeWidth = tickWidth,
+            cap = StrokeCap.Round
+        )
+
+        // Text Labels for Major Ticks (0, 20, 40, ..., 160)
+        if (isMajor) {
+            val textPt = Offset(
+                x = center.x + ((radius - 22.dp.toPx()) * cos(tickRad)).toFloat(),
+                y = center.y + ((radius - 22.dp.toPx()) * sin(tickRad)).toFloat()
+            )
+
+            drawContext.canvas.nativeCanvas.apply {
+                val paint = Paint().apply {
+                    color = if (isRedline) android.graphics.Color.parseColor("#EF4444")
+                    else android.graphics.Color.parseColor("#9CA3AF")
+                    textSize = 10.dp.toPx()
+                    textAlign = Paint.Align.CENTER
+                    isAntiAlias = true
+                    typeface = Typeface.MONOSPACE
+                }
+                drawText(
+                    "$i",
+                    textPt.x,
+                    textPt.y + 3.dp.toPx(),
+                    paint
+                )
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\screens\home\CockpitMapView.kt =====
+
+package com.example.safar20.ui.screens.home
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.example.safar20.data.local.entity.LocationPointEntity
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+
+/**
+ * MapLibre Native MapView for Cockpit & Trips preview.
+ * Polyline and marker updates occur strictly inside the AndroidView `update` block per SAFAR 2.0 specs.
+ */
+@Composable
+fun CockpitMapView(
+    latitude: Double,
+    longitude: Double,
+    heading: Int = 0,
+    routePoints: List<LocationPointEntity> = emptyList(),
+    modifier: Modifier = Modifier.fillMaxSize()
+) {
+    val context = LocalContext.current
+    remember { MapLibre.getInstance(context) }
+
+    val mapView = remember { MapView(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    AndroidView(
+        factory = {
+            mapView.apply {
+                getMapAsync { map ->
+                    map.setStyle(Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")) {
+                        map.uiSettings.isCompassEnabled = false
+                        map.uiSettings.isAttributionEnabled = false
+                        map.uiSettings.isLogoEnabled = false
+
+                        val initialPos = LatLng(latitude, longitude)
+                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(initialPos, 14.0))
+                    }
+                }
+            }
+        },
+        update = { view ->
+            view.getMapAsync { map ->
+                map.getStyle {
+                    if (routePoints.isNotEmpty()) {
+                        val latLngList = routePoints.map { LatLng(it.latitude, it.longitude) }
+
+                        if (latLngList.size >= 2) {
+                            try {
+                                val boundsBuilder = LatLngBounds.Builder()
+                                latLngList.forEach { boundsBuilder.include(it) }
+                                map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
+                            } catch (e: Exception) {
+                                // Fallback
+                                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLngList.first(), 14.0))
+                            }
+                        }
+                    } else if (latitude != 0.0 && longitude != 0.0) {
+                        val currentPos = LatLng(latitude, longitude)
+                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(currentPos, 15.0))
+                    }
+                }
+            }
+        },
+        modifier = modifier
+    )
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\screens\home\HomeScreen.kt =====
+
+package com.example.safar20.ui.screens.home
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.ui.components.QrPairingDialog
+import com.example.safar20.ui.components.TelemetryHeaderPill
+import com.example.safar20.ui.components.TripperSpeedometer
+import com.example.safar20.ui.theme.CrankcaseBlack
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.PhosphorGreen
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SignalRed
+import com.example.safar20.ui.theme.WarmIvory
+import com.example.safar20.viewModels.SafarViewModel
+
+/**
+ * SAFAR 2.0 HomeScreen: Live Retro-Moto Cockpit Dashboard.
+ * Integrates TelemetryHeaderPill, MapLibre CockpitMapView, TripperSpeedometer,
+ * and live ESP32 mock simulator toggle control.
+ */
+@Composable
+fun HomeScreen(
+    viewModel: SafarViewModel,
+    modifier: Modifier = Modifier
+) {
+    val selectedDevice by viewModel.selectedDevice.collectAsState()
+    val allDevices by viewModel.allDevices.collectAsState()
+    val liveTelemetry by viewModel.liveTelemetry.collectAsState()
+    val isSimulatorRunning by viewModel.isSimulatorRunning.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
+    val speedUnit by viewModel.speedUnit.collectAsState()
+
+    var showDeviceMenu by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+
+    // Lat/Lon fallback to Nagpur center or last known location
+    val currentLat = liveTelemetry?.latitude ?: selectedDevice?.lastLat ?: 21.1458
+    val currentLon = liveTelemetry?.longitude ?: selectedDevice?.lastLon ?: 79.0882
+    val currentSpeed = liveTelemetry?.speedKmh ?: selectedDevice?.lastSpeed ?: 0.0f
+    val currentHeading = liveTelemetry?.heading ?: 0
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(CrankcaseBlack)
+    ) {
+        // 1. MapLibre Background Cockpit Map
+        CockpitMapView(
+            latitude = currentLat,
+            longitude = currentLon,
+            heading = currentHeading,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 2. Overlay Top Cockpit Bar & Speedometer
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Cockpit Bar
+            Box {
+                TelemetryHeaderPill(
+                    activeDeviceName = selectedDevice?.deviceName ?: "No Device Selected",
+                    connectionState = connectionState,
+                    latencyMs = if (isSimulatorRunning) 18 else 38,
+                    onDeviceClick = { showDeviceMenu = true }
+                )
+
+                // Device Switcher Dropdown
+                DropdownMenu(
+                    expanded = showDeviceMenu,
+                    onDismissRequest = { showDeviceMenu = false },
+                    modifier = Modifier.background(GunmetalGauge)
+                ) {
+                    allDevices.forEach { device ->
+                        DropdownMenuItem(
+                            text = { Text(device.deviceName, color = WarmIvory) },
+                            onClick = {
+                                viewModel.selectDevice(device.deviceId)
+                                showDeviceMenu = false
+                            }
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text("➕ Pair New Tracker", color = RoyalBrass, fontWeight = FontWeight.Bold) },
+                        onClick = {
+                            showDeviceMenu = false
+                            showQrDialog = true
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Center Circular Tripper Speedometer Gauge
+            TripperSpeedometer(
+                speedKmh = currentSpeed,
+                unit = speedUnit,
+                odoDistanceKm = 18.4,
+                gaugeSize = 250.dp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Simulator Start / Stop Toggle Button
+            Button(
+                onClick = {
+                    viewModel.toggleSimulator(!isSimulatorRunning)
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSimulatorRunning) SignalRed else PhosphorGreen
+                ),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .padding(bottom = 24.dp)
+            ) {
+                Text(
+                    text = if (isSimulatorRunning) "⏹ STOP MOCK SIMULATOR" else "▶ START MOCK SIMULATOR",
+                    color = CrankcaseBlack,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        // QR Code Pairing Dialog Modal
+        if (showQrDialog) {
+            QrPairingDialog(
+                onDismiss = { showQrDialog = false },
+                onPairQrUri = { uri ->
+                    viewModel.pairDeviceFromQr(
+                        qrUriString = uri,
+                        onSuccess = { showQrDialog = false },
+                        onError = { /* Error handled */ }
+                    )
+                },
+                onPairManual = { id, name, sim ->
+                    viewModel.addManualDevice(id, name, sim) {
+                        showQrDialog = false
+                    }
+                }
+            )
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\screens\settings\SettingScreen.kt =====
+
+package com.example.safar20.ui.screens.settings
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DirectionsBike
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.ui.components.QrPairingDialog
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.CrankcaseBlack
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.SignalRed
+import com.example.safar20.ui.theme.WarmIvory
+import com.example.safar20.viewModels.SafarViewModel
+
+/**
+ * Settings Screen for Unit Conversion, Theme Switching, Device Management & Telemetry Simulation.
+ */
+@Composable
+fun SettingScreen(
+    viewModel: SafarViewModel,
+    modifier: Modifier = Modifier
+) {
+    val allDevices by viewModel.allDevices.collectAsState()
+    val selectedDevice by viewModel.selectedDevice.collectAsState()
+    val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val speedUnit by viewModel.speedUnit.collectAsState()
+    val isSimulatorRunning by viewModel.isSimulatorRunning.collectAsState()
+
+    var showQrDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(CrankcaseBlack)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "COCKPIT SETTINGS",
+            color = WarmIvory,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.5.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 1. Paired Motorcycles & Device Management
+        SettingsSectionHeader(title = "PAIRED MOTORCYCLES", icon = Icons.Default.DirectionsBike)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                allDevices.forEach { device ->
+                    val isSelected = (device.deviceId == selectedDevice?.deviceId)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { viewModel.selectDevice(device.deviceId) },
+                                colors = RadioButtonDefaults.colors(selectedColor = RoyalBrass)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Column {
+                                Text(device.deviceName, color = WarmIvory, fontWeight = FontWeight.Bold)
+                                Text("SIM: ${device.simNumber}", color = MutedPewter, fontSize = 11.sp)
+                            }
+                        }
+
+                        IconButton(onClick = { viewModel.deleteDevice(device.deviceId) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = SignalRed)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showQrDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = RoyalBrass),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = GunmetalGauge)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("PAIR NEW TRACKER (QR)", color = GunmetalGauge, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 2. Speed & Distance Unit Unit Conversion
+        SettingsSectionHeader(title = "SPEED & DISTANCE UNITS", icon = Icons.Default.Speed)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Metric vs Imperial", color = WarmIvory, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (speedUnit == "mph") "Active: Miles / MPH" else "Active: Kilometers / KM/H",
+                        color = MutedPewter,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Button(
+                    onClick = { viewModel.toggleSpeedUnit() },
+                    colors = ButtonDefaults.buttonColors(containerColor = BronzeRim)
+                ) {
+                    Text(
+                        text = if (speedUnit == "mph") "SWITCH TO KM/H" else "SWITCH TO MPH",
+                        color = RoyalBrass,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 3. Cockpit Theme Selector
+        SettingsSectionHeader(title = "COCKPIT THEME", icon = Icons.Default.Palette)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        if (isDarkTheme) "Midnight Moto Cockpit (Dark)" else "Classic Parchment Day-Dial (Light)",
+                        color = WarmIvory,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("Persisted in DataStore", color = MutedPewter, fontSize = 12.sp)
+                }
+
+                Switch(
+                    checked = isDarkTheme,
+                    onCheckedChange = { viewModel.toggleDarkTheme(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = RoyalBrass,
+                        checkedTrackColor = BronzeRim
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 4. ESP32 Telemetry Simulator Control
+        SettingsSectionHeader(title = "DEMO SIMULATOR CONTROLS", icon = Icons.Default.Speed)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Simulates 16-byte binary GPS telemetry packets every 1 second along Nagpur roads.",
+                    color = MutedPewter,
+                    fontSize = 12.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { viewModel.toggleSimulator(!isSimulatorRunning) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSimulatorRunning) SignalRed else RoyalBrass
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (isSimulatorRunning) "⏹ STOP LIVE SIMULATOR" else "▶ START LIVE SIMULATOR",
+                        color = GunmetalGauge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+
+    if (showQrDialog) {
+        QrPairingDialog(
+            onDismiss = { showQrDialog = false },
+            onPairQrUri = { uri ->
+                viewModel.pairDeviceFromQr(
+                    qrUriString = uri,
+                    onSuccess = { showQrDialog = false },
+                    onError = { }
+                )
+            },
+            onPairManual = { id, name, sim ->
+                viewModel.addManualDevice(id, name, sim) {
+                    showQrDialog = false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SettingsSectionHeader(title: String, icon: ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(bottom = 8.dp)
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = RoyalBrass)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = title,
+            color = RoyalBrass,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp
+        )
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\screens\trips\TripsScreen.kt =====
+
+package com.example.safar20.ui.screens.trips
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.safar20.ui.components.RideTicketCard
+import com.example.safar20.ui.screens.home.CockpitMapView
+import com.example.safar20.ui.theme.BronzeRim
+import com.example.safar20.ui.theme.CrankcaseBlack
+import com.example.safar20.ui.theme.GunmetalGauge
+import com.example.safar20.ui.theme.MutedPewter
+import com.example.safar20.ui.theme.RoyalBrass
+import com.example.safar20.ui.theme.WarmIvory
+import com.example.safar20.viewModels.SafarViewModel
+
+/**
+ * Trips Logbook Screen showing historical ride cards and rendering trip route polylines on MapLibre.
+ */
+@Composable
+fun TripsScreen(
+    viewModel: SafarViewModel,
+    modifier: Modifier = Modifier
+) {
+    val selectedDevice by viewModel.selectedDevice.collectAsState()
+    val tripHistory by viewModel.tripHistory.collectAsState()
+    val selectedTripId by viewModel.selectedTripId.collectAsState()
+    val selectedTripPoints by viewModel.selectedTripPoints.collectAsState()
+    val speedUnit by viewModel.speedUnit.collectAsState()
+
+    val mapCenterLat = selectedTripPoints.firstOrNull()?.latitude ?: selectedDevice?.lastLat ?: 21.1458
+    val mapCenterLon = selectedTripPoints.firstOrNull()?.longitude ?: selectedDevice?.lastLon ?: 79.0882
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(CrankcaseBlack)
+    ) {
+        // Top Header Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "RIDE LOGBOOK",
+                color = WarmIvory,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+
+            Text(
+                text = selectedDevice?.deviceName ?: "No Device",
+                color = RoyalBrass,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        // Upper Section: Map Preview with Route Polyline
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.38f)
+                .padding(horizontal = 16.dp)
+                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp))
+        ) {
+            CockpitMapView(
+                latitude = mapCenterLat,
+                longitude = mapCenterLon,
+                routePoints = selectedTripPoints,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Lower Section: Ride Cards List
+        if (tripHistory.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "NO HISTORICAL RIDES FOUND",
+                        color = MutedPewter,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.toggleSimulator(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = RoyalBrass)
+                    ) {
+                        Text("⚡ GENERATE SAMPLE RIDES", color = GunmetalGauge, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                items(
+                    items = tripHistory,
+                    key = { it.tripId }
+                ) { trip ->
+                    RideTicketCard(
+                        trip = trip,
+                        speedUnit = speedUnit,
+                        isSelected = (trip.tripId == selectedTripId),
+                        onCardClick = {
+                            viewModel.selectTripForMapPreview(
+                                if (selectedTripId == trip.tripId) null else trip.tripId
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\theme\Color.kt =====
+
+package com.example.safar20.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// ============================================================================
+// SAFAR 2.0 — ROYAL ENFIELD RETRO-MOTO COCKPIT PALETTE
+// ============================================================================
+
+// --- Dark Theme ("Midnight Moto Cockpit" — Default) ---
+val CrankcaseBlack = Color(0xFF0E0E10)      // Primary Background: Deep matte metallic black
+val GunmetalGauge = Color(0xFF18181B)       // Elevated Surface / Card
+val BronzeRim = Color(0xFF2E2A24)           // Brushed bronze rim border
+val RoyalBrass = Color(0xFFD4AF37)          // Primary Accent: Amber Gold / Speedometer needle
+val CafeCopper = Color(0xFFC86D51)          // Secondary Accent: Route polylines
+val PhosphorGreen = Color(0xFF4ADE80)        // Telemetry Live Green: Active P2P UDP indicator
+val SignalRed = Color(0xFFEF4444)           // Alert / SOS Red: High-RPM redline zone
+val WarmIvory = Color(0xFFF4EFE6)           // Text Primary: Vintage dial numeral cream
+val MutedPewter = Color(0xFF9CA3AF)         // Text Secondary
+
+// --- Light Theme ("Classic Parchment Day-Dial") ---
+val VintageParchment = Color(0xFFF4EFE6)    // Primary Background: Warm cream speedometer dial look
+val WarmSand = Color(0xFFEAE2D3)            // Elevated Surface
+val SandBorder = Color(0xFFC5B8A5)          // Card border
+val BritishRacingGreen = Color(0xFF143B27)  // Primary Accent: Heritage green
+val BurnishedBrass = Color(0xFFB5892E)      // Secondary Accent
+val EspressoInk = Color(0xFF1C1917)         // Text Primary
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\theme\Theme.kt =====
+
+package com.example.safar20.ui.theme
+
+import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+
+// Midnight Moto Cockpit (Dark Theme — Default)
+private val DarkColorScheme = darkColorScheme(
+    primary = RoyalBrass,
+    onPrimary = CrankcaseBlack,
+    primaryContainer = BronzeRim,
+    onPrimaryContainer = WarmIvory,
+    secondary = CafeCopper,
+    onSecondary = WarmIvory,
+    tertiary = PhosphorGreen,
+    onTertiary = CrankcaseBlack,
+    background = CrankcaseBlack,
+    onBackground = WarmIvory,
+    surface = GunmetalGauge,
+    onSurface = WarmIvory,
+    surfaceVariant = BronzeRim,
+    onSurfaceVariant = MutedPewter,
+    outline = BronzeRim,
+    error = SignalRed,
+    onError = WarmIvory
+)
+
+// Classic Parchment Day-Dial (Light Theme)
+private val LightColorScheme = lightColorScheme(
+    primary = BritishRacingGreen,
+    onPrimary = VintageParchment,
+    primaryContainer = SandBorder,
+    onPrimaryContainer = EspressoInk,
+    secondary = BurnishedBrass,
+    onSecondary = VintageParchment,
+    tertiary = PhosphorGreen,
+    onTertiary = EspressoInk,
+    background = VintageParchment,
+    onBackground = EspressoInk,
+    surface = WarmSand,
+    onSurface = EspressoInk,
+    surfaceVariant = SandBorder,
+    onSurfaceVariant = EspressoInk,
+    outline = SandBorder,
+    error = SignalRed,
+    onError = VintageParchment
+)
+
+/**
+ * Royal Enfield Retro-Moto Cockpit Theme for SAFAR 2.0.
+ * Defaults to Midnight Moto Cockpit dark theme.
+ */
+@Composable
+fun SafarTheme(
+    darkTheme: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val view = LocalView.current
+
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+
+/**
+ * Compatibility alias for Safar20Theme.
+ */
+@Composable
+fun Safar20Theme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    SafarTheme(darkTheme = darkTheme, content = content)
+}
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\ui\theme\Type.kt =====
+
+package com.example.safar20.ui.theme
+
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// ============================================================================
+// SAFAR 2.0 — ROYAL ENFIELD RETRO-MOTO TYPOGRAPHY
+// ============================================================================
+
+val Typography = Typography(
+    // Speedometer Numerals & Odometer Counters (Bold Monospace)
+    displayLarge = TextStyle(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 56.sp,
+        lineHeight = 64.sp,
+        letterSpacing = 0.sp
+    ),
+    displayMedium = TextStyle(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 44.sp,
+        lineHeight = 52.sp,
+        letterSpacing = 0.sp
+    ),
+    displaySmall = TextStyle(
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
+        letterSpacing = 0.sp
+    ),
+
+    // Cockpit Section Headers (Wide uppercase letter spacing: 1.5.sp)
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 1.5.sp
+    ),
+    titleMedium = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 1.5.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 1.5.sp
+    ),
+
+    // Body & Labels
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.25.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.4.sp
+    ),
+    labelLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.5.sp
+    )
+)
+
+===== FILE: C:\Users\ASUS\OneDrive\Desktop\androidDev\Safar20\app\src\main\java\com\example\safar20\viewModels\SafarViewModel.kt =====
+
+package com.example.safar20.viewModels
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.safar20.data.local.entity.DeviceEntity
+import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.data.local.entity.TripSummaryEntity
+import com.example.safar20.data.network.BinaryPacketCodec
+import com.example.safar20.data.repository.SafarRepository
+import com.example.safar20.ui.components.ConnectionState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/**
+ * Shared ViewModel for SAFAR 2.0.
+ * Serves HomeScreen, TripsScreen, and SettingsScreen with a single source of truth.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class SafarViewModel(
+    private val repository: SafarRepository
+) : ViewModel() {
+
+    // --- Core StateFlows from Repository ---
+    val allDevices: StateFlow<List<DeviceEntity>> = repository.allDevices
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val selectedDevice: StateFlow<DeviceEntity?> = repository.selectedDevice
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val isDarkTheme: StateFlow<Boolean> = repository.isDarkTheme
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val speedUnit: StateFlow<String> = repository.speedUnit
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "km/h")
+
+    // --- Live Telemetry State ---
+    private val _liveTelemetry = MutableStateFlow<BinaryPacketCodec.ParsedTripPoint?>(null)
+    val liveTelemetry: StateFlow<BinaryPacketCodec.ParsedTripPoint?> = _liveTelemetry.asStateFlow()
+
+    private val _isSimulatorRunning = MutableStateFlow(false)
+    val isSimulatorRunning: StateFlow<Boolean> = _isSimulatorRunning.asStateFlow()
+
+    val connectionState: StateFlow<ConnectionState> = combine(
+        selectedDevice,
+        _isSimulatorRunning,
+        _liveTelemetry
+    ) { device, isSim, telemetry ->
+        when {
+            device == null -> ConnectionState.OFFLINE
+            isSim -> ConnectionState.SIMULATOR_SYNCING
+            telemetry != null && (System.currentTimeMillis() / 1000 - telemetry.timestamp) < 10 -> ConnectionState.P2P_DIRECT
+            else -> ConnectionState.PARKED
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionState.PARKED)
+
+    // --- Trip History State ---
+    val tripHistory: StateFlow<List<TripSummaryEntity>> = selectedDevice
+        .flatMapLatest { device ->
+            if (device != null) {
+                repository.getTripsForDevice(device.deviceId)
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedTripId = MutableStateFlow<String?>(null)
+    val selectedTripId: StateFlow<String?> = _selectedTripId.asStateFlow()
+
+    val selectedTripPoints: StateFlow<List<LocationPointEntity>> = _selectedTripId
+        .flatMapLatest { tripId ->
+            if (tripId != null) {
+                repository.getPointsForTrip(tripId)
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        // Collect live telemetry from Repository
+        viewModelScope.launch {
+            repository.liveTelemetryStream.collect { telemetryPoint ->
+                _liveTelemetry.value = telemetryPoint
+                selectedDevice.value?.let { device ->
+                    repository.updateLastKnownLocation(
+                        deviceId = device.deviceId,
+                        lat = telemetryPoint.latitude,
+                        lon = telemetryPoint.longitude,
+                        speed = telemetryPoint.speedKmh,
+                        timestamp = telemetryPoint.timestamp
+                    )
+                }
+            }
+        }
+
+        // Auto-seed mock data on initial launch
+        viewModelScope.launch {
+            repository.seedMockData("SAFAR_01")
+        }
+    }
+
+    // --- UI Actions ---
+    fun selectDevice(deviceId: String) {
+        viewModelScope.launch {
+            repository.setSelectedDevice(deviceId)
+            _selectedTripId.value = null
+        }
+    }
+
+    fun toggleDarkTheme(isDark: Boolean) {
+        viewModelScope.launch {
+            repository.setDarkTheme(isDark)
+        }
+    }
+
+    fun setSpeedUnit(unit: String) {
+        viewModelScope.launch {
+            repository.setSpeedUnit(unit)
+        }
+    }
+
+    fun toggleSpeedUnit() {
+        viewModelScope.launch {
+            repository.toggleSpeedUnit()
+        }
+    }
+
+    fun toggleSimulator(enable: Boolean) {
+        _isSimulatorRunning.value = enable
+        if (enable) {
+            repository.startSimulator()
+        } else {
+            repository.stopSimulator()
+        }
+    }
+
+    fun selectTripForMapPreview(tripId: String?) {
+        _selectedTripId.value = tripId
+    }
+
+    fun pairDeviceFromQr(
+        qrUriString: String,
+        onSuccess: (DeviceEntity) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.parseAndPairQrUri(qrUriString)
+            result.onSuccess { device ->
+                onSuccess(device)
+            }.onFailure { exception ->
+                onError(exception.message ?: "Failed to parse QR URI")
+            }
+        }
+    }
+
+    fun addManualDevice(
+        id: String,
+        name: String,
+        simNumber: String,
+        onSuccess: (DeviceEntity) -> Unit
+    ) {
+        viewModelScope.launch {
+            val device = repository.addManualDevice(id, name, simNumber)
+            onSuccess(device)
+        }
+    }
+
+    fun deleteDevice(deviceId: String) {
+        viewModelScope.launch {
+            repository.deleteDevice(deviceId)
+        }
+    }
+
+    class Factory(private val context: Context) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val repo = SafarRepository.getInstance(context)
+            return SafarViewModel(repo) as T
+        }
+    }
+}

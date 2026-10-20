@@ -18,10 +18,6 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
-/**
- * MapLibre Native MapView for Cockpit & Trips preview.
- * Polyline and marker updates occur strictly inside the AndroidView `update` block per SAFAR 2.0 specs.
- */
 @Composable
 fun CockpitMapView(
     latitude: Double,
@@ -31,7 +27,15 @@ fun CockpitMapView(
     modifier: Modifier = Modifier.fillMaxSize()
 ) {
     val context = LocalContext.current
-    remember { MapLibre.getInstance(context) }
+
+    // Ensure MapLibre instance is initialized safely
+    remember {
+        try {
+            MapLibre.getInstance(context)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     val mapView = remember { MapView(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -56,8 +60,10 @@ fun CockpitMapView(
     AndroidView(
         factory = {
             mapView.apply {
+                onCreate(null)
                 getMapAsync { map ->
-                    map.setStyle(Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")) {
+                    // Using standard reliable OpenFreeMap / MapLibre demo vector style
+                    map.setStyle(Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")) { style ->
                         map.uiSettings.isCompassEnabled = false
                         map.uiSettings.isAttributionEnabled = false
                         map.uiSettings.isLogoEnabled = false
@@ -70,17 +76,15 @@ fun CockpitMapView(
         },
         update = { view ->
             view.getMapAsync { map ->
-                map.getStyle {
+                map.getStyle { _ ->
                     if (routePoints.isNotEmpty()) {
                         val latLngList = routePoints.map { LatLng(it.latitude, it.longitude) }
-
                         if (latLngList.size >= 2) {
                             try {
                                 val boundsBuilder = LatLngBounds.Builder()
                                 latLngList.forEach { boundsBuilder.include(it) }
                                 map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
                             } catch (e: Exception) {
-                                // Fallback
                                 map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLngList.first(), 14.0))
                             }
                         }
