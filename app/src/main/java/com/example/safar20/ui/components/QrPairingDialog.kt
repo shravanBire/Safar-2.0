@@ -1,8 +1,19 @@
 package com.example.safar20.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview as CameraPreview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +23,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -25,6 +38,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,20 +46,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
+import androidx.core.content.ContextCompat
 import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SignalRed
-import com.example.safar20.ui.theme.WarmIvory
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
 
 /**
- * QR Code Pairing Dialog supporting QR payload parsing, manual entry,
- * and a 1-tap "Load Demo Classic 350" preset.
+ * QR Code Pairing Dialog supporting Live CameraX ML Kit Camera Scanner,
+ * QR payload text parsing, manual entry, and a 1-tap Demo preset.
  */
 @Composable
 fun QrPairingDialog(
@@ -53,7 +70,7 @@ fun QrPairingDialog(
     onPairQrUri: (String) -> Unit,
     onPairManual: (id: String, name: String, sim: String) -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = QR Payload, 1 = Manual
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Camera Scanner, 1 = QR Text, 2 = Manual
 
     var qrPayloadText by remember { mutableStateOf("") }
     var manualId by remember { mutableStateOf("") }
@@ -66,16 +83,16 @@ fun QrPairingDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = GunmetalGauge,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(16.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(16.dp))
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Dialog Header
+                // Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -83,12 +100,12 @@ fun QrPairingDialog(
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = "Pair Tracker",
-                        tint = RoyalBrass
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "PAIR SAFAR TRACKER",
-                        color = WarmIvory,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp
@@ -97,113 +114,102 @@ fun QrPairingDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Tabs: QR Scan vs Manual Entry
+                // Tabs: Camera Scanner, QR Payload, Manual Entry
                 TabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = GunmetalGauge,
-                    contentColor = RoyalBrass
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
                 ) {
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("QR Payload", color = if (selectedTab == 0) RoyalBrass else MutedPewter) }
+                        text = { Text("Camera", fontSize = 11.sp) }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("Manual Entry", color = if (selectedTab == 1) RoyalBrass else MutedPewter) }
+                        text = { Text("QR Text", fontSize = 11.sp) }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("Manual", fontSize = 11.sp) }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (selectedTab == 0) {
-                    // QR Payload Tab
-                    OutlinedTextField(
-                        value = qrPayloadText,
-                        onValueChange = {
-                            qrPayloadText = it
-                            errorMessage = null
-                        },
-                        label = { Text("Paste QR URI (safar://pair?...)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = RoyalBrass,
-                            unfocusedBorderColor = BronzeRim,
-                            focusedTextColor = WarmIvory,
-                            unfocusedTextColor = WarmIvory
+                when (selectedTab) {
+                    0 -> {
+                        // Live CameraX + ML Kit Barcode Scanner
+                        CameraXScannerTab(
+                            onQrScanned = { scannedUri ->
+                                onPairQrUri(scannedUri)
+                            }
                         )
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Demo Tracker Preset Button
-                    Button(
-                        onClick = {
-                            qrPayloadText = demoPayload
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BronzeRim
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCode2,
-                            contentDescription = "Demo Tracker",
-                            tint = RoyalBrass
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("⚡ Load Demo Classic 350 Tracker", color = WarmIvory, fontSize = 12.sp)
                     }
-                } else {
-                    // Manual Entry Tab
-                    OutlinedTextField(
-                        value = manualId,
-                        onValueChange = { manualId = it },
-                        label = { Text("Device ID (e.g. SAFAR_01)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = RoyalBrass,
-                            unfocusedBorderColor = BronzeRim,
-                            focusedTextColor = WarmIvory,
-                            unfocusedTextColor = WarmIvory
+                    1 -> {
+                        // QR Payload Text Input Tab
+                        OutlinedTextField(
+                            value = qrPayloadText,
+                            onValueChange = {
+                                qrPayloadText = it
+                                errorMessage = null
+                            },
+                            label = { Text("Paste QR URI (safar://pair?...)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            )
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = manualName,
-                        onValueChange = { manualName = it },
-                        label = { Text("Device Name (e.g. Royal Enfield Classic 350)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = RoyalBrass,
-                            unfocusedBorderColor = BronzeRim,
-                            focusedTextColor = WarmIvory,
-                            unfocusedTextColor = WarmIvory
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = { qrPayloadText = demoPayload },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode2,
+                                contentDescription = "Demo Tracker",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Load Demo Classic 350 Tracker", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                        }
+                    }
+                    2 -> {
+                        // Manual Entry Tab
+                        OutlinedTextField(
+                            value = manualId,
+                            onValueChange = { manualId = it },
+                            label = { Text("Device ID (e.g. SAFAR_01)") },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = manualSim,
-                        onValueChange = { manualSim = it },
-                        label = { Text("GSM SIM Number (e.g. +919876543210)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = RoyalBrass,
-                            unfocusedBorderColor = BronzeRim,
-                            focusedTextColor = WarmIvory,
-                            unfocusedTextColor = WarmIvory
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = manualName,
+                            onValueChange = { manualName = it },
+                            label = { Text("Device Name (e.g. RE Classic 350)") },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = manualSim,
+                            onValueChange = { manualSim = it },
+                            label = { Text("GSM SIM Number (+919876543210)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = errorMessage!!,
-                        color = SignalRed,
-                        fontSize = 12.sp
-                    )
+                    Text(text = errorMessage!!, color = SignalRed, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -214,33 +220,152 @@ fun QrPairingDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel", color = MutedPewter)
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    Button(
-                        onClick = {
-                            if (selectedTab == 0) {
-                                if (qrPayloadText.isBlank()) {
-                                    errorMessage = "Please enter or load a valid QR payload URI"
-                                } else {
-                                    onPairQrUri(qrPayloadText)
+                    if (selectedTab != 0) {
+                        Button(
+                            onClick = {
+                                if (selectedTab == 1) {
+                                    if (qrPayloadText.isBlank()) {
+                                        errorMessage = "Please enter or load a valid QR payload URI"
+                                    } else {
+                                        onPairQrUri(qrPayloadText)
+                                    }
+                                } else if (selectedTab == 2) {
+                                    if (manualId.isBlank() || manualName.isBlank()) {
+                                        errorMessage = "Device ID and Name are required"
+                                    } else {
+                                        onPairManual(manualId, manualName, manualSim)
+                                    }
                                 }
-                            } else {
-                                if (manualId.isBlank() || manualName.isBlank()) {
-                                    errorMessage = "Device ID and Name are required"
-                                } else {
-                                    onPairManual(manualId, manualName, manualSim)
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = RoyalBrass
-                        )
-                    ) {
-                        Text("PAIR NOW", color = GunmetalGauge, fontWeight = FontWeight.Bold)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("PAIR NOW", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        }
                     }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalGetImage::class)
+@Composable
+private fun CameraXScannerTab(
+    onQrScanned: (String) -> Unit
+) {
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    if (hasCameraPermission) {
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx)
+                    val executor = ContextCompat.getMainExecutor(ctx)
+
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
+
+                        val preview = CameraPreview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
+
+                        val scanner = BarcodeScanning.getClient()
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+
+                        imageAnalysis.setAnalyzer(executor) { imageProxy ->
+                            val mediaImage = imageProxy.image
+                            if (mediaImage != null) {
+                                val inputImage = InputImage.fromMediaImage(
+                                    mediaImage,
+                                    imageProxy.imageInfo.rotationDegrees
+                                )
+                                scanner.process(inputImage)
+                                    .addOnSuccessListener { barcodes ->
+                                        for (barcode in barcodes) {
+                                            barcode.rawValue?.let { raw ->
+                                                if (raw.startsWith("safar://")) {
+                                                    onQrScanned(raw)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .addOnCompleteListener {
+                                        imageProxy.close()
+                                    }
+                            } else {
+                                imageProxy.close()
+                            }
+                        }
+
+                        try {
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                CameraSelector.DEFAULT_BACK_CAMERA,
+                                preview,
+                                imageAnalysis
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }, executor)
+
+                    previewView
+                },
+                modifier = Modifier.fillMaxWidth().height(200.dp)
+            )
+        }
+    } else {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.CameraAlt, contentDescription = null, tint = RoyalBrass)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Camera permission required to scan QR code", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                    Text("Grant Permission", fontSize = 11.sp)
                 }
             }
         }

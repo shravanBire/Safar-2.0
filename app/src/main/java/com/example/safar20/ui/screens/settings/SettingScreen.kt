@@ -15,8 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Speed
@@ -26,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -44,13 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.safar20.ui.components.QrPairingDialog
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.CrankcaseBlack
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SignalRed
-import com.example.safar20.ui.theme.WarmIvory
 import com.example.safar20.viewModels.SafarViewModel
 
 /**
@@ -72,13 +68,13 @@ fun SettingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(CrankcaseBlack)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Text(
             text = "COCKPIT SETTINGS",
-            color = WarmIvory,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.5.sp
@@ -87,13 +83,13 @@ fun SettingScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // 1. Paired Motorcycles & Device Management
-        SettingsSectionHeader(title = "PAIRED MOTORCYCLES", icon = Icons.Default.DirectionsBike)
+        SettingsSectionHeader(title = "PAIRED MOTORCYCLES", icon = Icons.AutoMirrored.Filled.DirectionsBike)
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 allDevices.forEach { device ->
@@ -113,8 +109,8 @@ fun SettingScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Column {
-                                Text(device.deviceName, color = WarmIvory, fontWeight = FontWeight.Bold)
-                                Text("SIM: ${device.simNumber}", color = MutedPewter, fontSize = 11.sp)
+                                Text(device.deviceName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                Text("SIM: ${device.simNumber}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                             }
                         }
 
@@ -131,23 +127,23 @@ fun SettingScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = RoyalBrass),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = GunmetalGauge)
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = MaterialTheme.colorScheme.background)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("PAIR NEW TRACKER (QR)", color = GunmetalGauge, fontWeight = FontWeight.Bold)
+                    Text("PAIR NEW TRACKER (QR)", color = MaterialTheme.colorScheme.background, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 2. Speed & Distance Unit Unit Conversion
+        // 2. Speed & Distance Unit Conversion
         SettingsSectionHeader(title = "SPEED & DISTANCE UNITS", icon = Icons.Default.Speed)
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
                 modifier = Modifier
@@ -157,21 +153,21 @@ fun SettingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Metric vs Imperial", color = WarmIvory, fontWeight = FontWeight.Bold)
+                    Text("Metric vs Imperial", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                     Text(
                         if (speedUnit == "mph") "Active: Miles / MPH" else "Active: Kilometers / KM/H",
-                        color = MutedPewter,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
 
                 Button(
                     onClick = { viewModel.toggleSpeedUnit() },
-                    colors = ButtonDefaults.buttonColors(containerColor = BronzeRim)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
                     Text(
                         text = if (speedUnit == "mph") "SWITCH TO KM/H" else "SWITCH TO MPH",
-                        color = RoyalBrass,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
                     )
@@ -187,8 +183,8 @@ fun SettingScreen(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
                 modifier = Modifier
@@ -200,10 +196,10 @@ fun SettingScreen(
                 Column {
                     Text(
                         if (isDarkTheme) "Midnight Moto Cockpit (Dark)" else "Classic Parchment Day-Dial (Light)",
-                        color = WarmIvory,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("Persisted in DataStore", color = MutedPewter, fontSize = 12.sp)
+                    Text("Persisted in DataStore", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
 
                 Switch(
@@ -211,7 +207,7 @@ fun SettingScreen(
                     onCheckedChange = { viewModel.toggleDarkTheme(it) },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = RoyalBrass,
-                        checkedTrackColor = BronzeRim
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 )
             }
@@ -225,13 +221,13 @@ fun SettingScreen(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = GunmetalGauge)
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Simulates 16-byte binary GPS telemetry packets every 1 second along Nagpur roads.",
-                    color = MutedPewter,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
 
@@ -245,8 +241,8 @@ fun SettingScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (isSimulatorRunning) "⏹ STOP LIVE SIMULATOR" else "▶ START LIVE SIMULATOR",
-                        color = GunmetalGauge,
+                        text = if (isSimulatorRunning) "STOP LIVE SIMULATOR" else "START LIVE SIMULATOR",
+                        color = MaterialTheme.colorScheme.background,
                         fontWeight = FontWeight.Bold
                     )
                 }

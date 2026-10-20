@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,13 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.PhosphorGreen
 import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SignalRed
-import com.example.safar20.ui.theme.WarmIvory
 
 enum class ConnectionState {
     P2P_DIRECT,
@@ -62,8 +59,8 @@ fun TelemetryHeaderPill(
         // Left Pill — Active Motorcycle Dropdown Selector
         Row(
             modifier = Modifier
-                .background(GunmetalGauge, shape = RoundedCornerShape(20.dp))
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(20.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(20.dp))
                 .clickable { onDeviceClick() }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -79,7 +76,7 @@ fun TelemetryHeaderPill(
 
             Text(
                 text = activeDeviceName,
-                color = WarmIvory,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -89,7 +86,7 @@ fun TelemetryHeaderPill(
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
                 contentDescription = "Select Device",
-                tint = MutedPewter,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -106,7 +103,7 @@ fun TelemetryHeaderPill(
             }
             ConnectionState.PARKED -> {
                 val lastText = if (!lastSeenText.isNullOrEmpty()) " ($lastSeenText)" else ""
-                MutedPewter to "PARKED$lastText"
+                MaterialTheme.colorScheme.onSurfaceVariant to "PARKED$lastText"
             }
             ConnectionState.OFFLINE -> {
                 SignalRed to "OFFLINE"
@@ -115,8 +112,8 @@ fun TelemetryHeaderPill(
 
         Row(
             modifier = Modifier
-                .background(GunmetalGauge, shape = RoundedCornerShape(20.dp))
-                .border(1.dp, BronzeRim, shape = RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(20.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, shape = RoundedCornerShape(20.dp))
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

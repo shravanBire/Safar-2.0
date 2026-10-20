@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,11 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.safar20.data.local.UnitConverter
 import com.example.safar20.data.local.entity.TripSummaryEntity
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.RoyalBrass
-import com.example.safar20.ui.theme.WarmIvory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,7 +44,7 @@ fun RideTicketCard(
     onCardClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (isSelected) RoyalBrass else BronzeRim
+    val borderColor = if (isSelected) RoyalBrass else MaterialTheme.colorScheme.outline
     val borderWidth = if (isSelected) 2.dp else 1.dp
 
     val formattedTimeRange = formatTimeRange(trip.startTimestamp, trip.endTimestamp)
@@ -61,7 +58,7 @@ fun RideTicketCard(
             .clickable { onCardClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = GunmetalGauge
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
@@ -84,7 +81,7 @@ fun RideTicketCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = formattedTimeRange,
-                        color = WarmIvory,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -93,12 +90,12 @@ fun RideTicketCard(
                 // Duration Badge
                 Box(
                     modifier = Modifier
-                        .background(BronzeRim.copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), shape = RoundedCornerShape(6.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "${trip.durationMinutes} MINS",
-                        color = WarmIvory,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -107,7 +104,7 @@ fun RideTicketCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = BronzeRim.copy(alpha = 0.5f), thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), thickness = 1.dp)
             Spacer(modifier = Modifier.height(12.dp))
 
             // 3-Column Brass Stat Grid
@@ -152,8 +149,8 @@ private fun StatBox(
 ) {
     Box(
         modifier = modifier
-            .background(BronzeRim.copy(alpha = 0.35f), shape = RoundedCornerShape(8.dp))
-            .border(1.dp, BronzeRim.copy(alpha = 0.6f), shape = RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f), shape = RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
             .padding(vertical = 8.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -162,7 +159,7 @@ private fun StatBox(
         ) {
             Text(
                 text = label,
-                color = MutedPewter,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.8.sp
@@ -170,7 +167,7 @@ private fun StatBox(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = value,
-                color = WarmIvory,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
@@ -183,5 +180,5 @@ private fun formatTimeRange(startTimestampSec: Long, endTimestampSec: Long): Str
     val timeFormat = SimpleDateFormat("hh:mm a", Locale.US)
     val startTime = timeFormat.format(Date(startTimestampSec * 1000))
     val endTime = timeFormat.format(Date(endTimestampSec * 1000))
-    return "$startTime → $endTime"
+    return "$startTime -> $endTime"
 }

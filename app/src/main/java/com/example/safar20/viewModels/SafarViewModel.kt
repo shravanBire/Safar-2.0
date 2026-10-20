@@ -20,6 +20,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Shared ViewModel for SAFAR 2.0.
@@ -46,6 +50,11 @@ class SafarViewModel(
     // --- Live Telemetry State ---
     private val _liveTelemetry = MutableStateFlow<BinaryPacketCodec.ParsedTripPoint?>(null)
     val liveTelemetry: StateFlow<BinaryPacketCodec.ParsedTripPoint?> = _liveTelemetry.asStateFlow()
+
+    private val _liveOdoDistanceKm = MutableStateFlow(18.4)
+    val liveOdoDistanceKm: StateFlow<Double> = _liveOdoDistanceKm.asStateFlow()
+
+    private var previousPoint: BinaryPacketCodec.ParsedTripPoint? = null
 
     private val _isSimulatorRunning = MutableStateFlow(false)
     val isSimulatorRunning: StateFlow<Boolean> = _isSimulatorRunning.asStateFlow()
@@ -91,7 +100,17 @@ class SafarViewModel(
         // Collect live telemetry from Repository
         viewModelScope.launch {
             repository.liveTelemetryStream.collect { telemetryPoint ->
+                val prev = previousPoint
+                if (prev != null && telemetryPoint.speedKmh > 1.0f) {
+                    val deltaM = calculateDistanceMeters(
+                        prev.latitude, prev.longitude,
+                        telemetryPoint.latitude, telemetryPoint.longitude
+                    )
+                    _liveOdoDistanceKm.value += (deltaM / 1000.0)
+                }
+                previousPoint = telemetryPoint
                 _liveTelemetry.value = telemetryPoint
+
                 selectedDevice.value?.let { device ->
                     repository.updateLastKnownLocation(
                         deviceId = device.deviceId,
@@ -108,6 +127,17 @@ class SafarViewModel(
         viewModelScope.launch {
             repository.seedMockData("SAFAR_01")
         }
+    }
+
+    private fun calculateDistanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                sin(dLon / 2) * sin(dLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return r * c
     }
 
     // --- UI Actions ---

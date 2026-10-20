@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -32,9 +33,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.safar20.ui.screens.home.HomeScreen
 import com.example.safar20.ui.screens.settings.SettingScreen
 import com.example.safar20.ui.screens.trips.TripsScreen
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SafarTheme
 import com.example.safar20.viewModels.SafarViewModel
@@ -69,7 +67,7 @@ fun SafarAppContent() {
         Scaffold(
             bottomBar = {
                 NavigationBar(
-                    containerColor = GunmetalGauge,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = RoyalBrass
                 ) {
                     navItems.forEachIndexed { index, item ->
@@ -92,9 +90,9 @@ fun SafarAppContent() {
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = RoyalBrass,
                                 selectedTextColor = RoyalBrass,
-                                indicatorColor = BronzeRim,
-                                unselectedIconColor = MutedPewter,
-                                unselectedTextColor = MutedPewter
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
