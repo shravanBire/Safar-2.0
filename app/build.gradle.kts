@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.safar20"
-        minSdk = 24
+        minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -45,6 +45,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
 
     val roomVersion = "2.7.0-alpha11"
     implementation("androidx.room:room-runtime:$roomVersion")
@@ -54,8 +55,7 @@ dependencies {
     // 2. Jetpack DataStore Preferences (1.1.1)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    // 3. Jetpack Compose Navigation (2.7.7+) & Lifecycle ViewModel Compose
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    // 3. Lifecycle ViewModel Compose
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
     // 4. MapLibre Android SDK (11.8.0)
@@ -71,6 +71,9 @@ dependencies {
 
     // 6. Material Icons Extended
     implementation("androidx.compose.material:material-icons-extended")
+
+    // 7. Eclipse Paho MQTT Client for Cloud & Cellular P2P Telemetry
+    implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

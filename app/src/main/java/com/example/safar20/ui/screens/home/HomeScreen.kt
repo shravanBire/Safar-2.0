@@ -25,7 +25,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.Expand
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -48,14 +52,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.safar20.data.local.UnitConverter
+import com.example.safar20.ui.components.BrassCard
 import com.example.safar20.ui.components.BrassStatBadge
 import com.example.safar20.ui.components.ConnectionState
 import com.example.safar20.ui.components.QrPairingDialog
 import com.example.safar20.ui.components.SectionLabel
 import com.example.safar20.ui.components.TelemetryHeaderPill
 import com.example.safar20.ui.components.TripperSpeedometer
+import com.example.safar20.ui.theme.Inter
 import com.example.safar20.ui.theme.PhosphorGreen
 import com.example.safar20.ui.theme.Rajdhani
+import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.viewModels.SafarViewModel
 
 /**
@@ -71,6 +78,7 @@ fun HomeScreen(
 ) {
     val selectedDevice by viewModel.selectedDevice.collectAsState()
     val allDevices by viewModel.allDevices.collectAsState()
+    val hasLiveData by viewModel.hasLiveData.collectAsState()
     val liveTelemetry by viewModel.liveTelemetry.collectAsState()
     val liveOdoKm by viewModel.liveOdoDistanceKm.collectAsState()
     val liveTripDist by viewModel.liveTripDistanceKm.collectAsState()
@@ -87,7 +95,7 @@ fun HomeScreen(
 
     val currentLat = liveTelemetry?.latitude ?: selectedDevice?.lastLat ?: 21.1458
     val currentLon = liveTelemetry?.longitude ?: selectedDevice?.lastLon ?: 79.0882
-    val currentSpeed = liveTelemetry?.speedKmh ?: selectedDevice?.lastSpeed ?: 0.0f
+    val currentSpeed = if (hasLiveData && connectionState is ConnectionState.LIVE) liveTelemetry?.speedKmh ?: 0.0f else 0.0f
     val currentHeading = liveTelemetry?.heading ?: 210
 
     var mapCenterLat by remember { mutableDoubleStateOf(currentLat) }
@@ -117,9 +125,8 @@ fun HomeScreen(
             // 1. Top Telemetry Header Pill
             Box(modifier = Modifier.fillMaxWidth()) {
                 TelemetryHeaderPill(
-                    activeDeviceName = selectedDevice?.deviceName ?: "No Device Selected",
+                    activeDeviceName = selectedDevice?.deviceName ?: "No Tracker Selected",
                     connectionState = connectionState,
-                    latencyMs = if (isSimulatorRunning) 18 else 38,
                     onDeviceClick = { showDeviceMenu = true }
                 )
 
@@ -155,7 +162,58 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Onboarding Banner Card when NO_DEVICE or BROKER_NOT_CONFIGURED
+            if (connectionState is ConnectionState.NO_DEVICE || connectionState is ConnectionState.BROKER_NOT_CONFIGURED) {
+                BrassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (connectionState is ConnectionState.NO_DEVICE) Icons.Default.QrCodeScanner else Icons.Default.Router,
+                                contentDescription = null,
+                                tint = RoyalBrass
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "GET STARTED WITH SAFAR 2.0",
+                                fontFamily = Rajdhani,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (connectionState is ConnectionState.NO_DEVICE)
+                                "No tracker paired. Scan QR code or enter keys manually to pair your motorcycle tracker."
+                            else
+                                "MQTT Relay Broker URI is empty. Configure broker settings to connect over cellular.",
+                            fontFamily = Inter,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        if (connectionState is ConnectionState.NO_DEVICE) {
+                            Button(
+                                onClick = {
+                                    qrErrorMessage = null
+                                    showQrDialog = true
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("+ PAIR TRACKER WITH QR", fontFamily = Rajdhani, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // 2. Dial zone: TripperSpeedometer with soft radial glow
             Box(
@@ -179,7 +237,7 @@ fun HomeScreen(
                 TripperSpeedometer(
                     speedKmh = currentSpeed,
                     unit = speedUnit,
-                    odoDistanceKm = liveOdoKm,
+                    odoDistanceKm = if (hasLiveData) liveOdoKm else 0.0,
                     gaugeSize = 300.dp,
                     connectionState = connectionState
                 )
@@ -187,7 +245,11 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Stat row: TRIP, AVG, MAX
+            // 3. Stat row: TRIP, AVG, MAX (Shows "—" until live data exists)
+            val tripText = if (hasLiveData) UnitConverter.formatDistance(liveTripDist, speedUnit, 1) else "—"
+            val avgText = if (hasLiveData) UnitConverter.formatSpeed(liveAvgSpeed, speedUnit, 0) else "—"
+            val maxText = if (hasLiveData) UnitConverter.formatSpeed(liveMaxSpeed, speedUnit, 0) else "—"
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,17 +257,17 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 BrassStatBadge(
-                    value = UnitConverter.formatDistance(liveTripDist, speedUnit, 1),
+                    value = tripText,
                     label = "TRIP",
                     modifier = Modifier.weight(1f)
                 )
                 BrassStatBadge(
-                    value = UnitConverter.formatSpeed(liveAvgSpeed, speedUnit, 0),
+                    value = avgText,
                     label = "AVG",
                     modifier = Modifier.weight(1f)
                 )
                 BrassStatBadge(
-                    value = UnitConverter.formatSpeed(liveMaxSpeed, speedUnit, 0),
+                    value = maxText,
                     label = "MAX",
                     modifier = Modifier.weight(1f)
                 )
@@ -241,7 +303,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (isSimulatorRunning) "STOP SIM" else "START SIM",
+                            text = if (isSimulatorRunning) "STOP SIM" else "MOCK SIM",
                             color = if (isSimulatorRunning) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                             fontFamily = Rajdhani,
                             fontWeight = FontWeight.Bold,
@@ -271,7 +333,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // Corner Expand / Collapse Button to avoid scroll conflicts
+                // Corner Expand / Collapse Button
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -302,8 +364,7 @@ fun HomeScreen(
                     }
                 }
 
-                val isLive = connectionState == ConnectionState.P2P_DIRECT || connectionState == ConnectionState.SIMULATOR_SYNCING
-                if (isLive) {
+                if (connectionState is ConnectionState.LIVE) {
                     Row(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -338,6 +399,7 @@ fun HomeScreen(
         if (showQrDialog) {
             QrPairingDialog(
                 externalError = qrErrorMessage,
+                existingDevices = allDevices,
                 onDismiss = {
                     qrErrorMessage = null
                     showQrDialog = false
@@ -354,11 +416,16 @@ fun HomeScreen(
                         }
                     )
                 },
-                onPairManual = { id, name, sim ->
-                    viewModel.addManualDevice(id, name, sim) {
-                        qrErrorMessage = null
-                        showQrDialog = false
-                    }
+                onPairManual = { id, name, sim, pub, sec ->
+                    viewModel.addManualDevice(id, name, sim, pub, sec,
+                        onSuccess = {
+                            qrErrorMessage = null
+                            showQrDialog = false
+                        },
+                        onError = { err ->
+                            qrErrorMessage = err
+                        }
+                    )
                 }
             )
         }

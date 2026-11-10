@@ -21,6 +21,9 @@ interface DeviceDao {
     @Query("SELECT * FROM devices WHERE is_selected = 1 LIMIT 1")
     suspend fun getSelectedDeviceOnce(): DeviceEntity?
 
+    @Query("SELECT * FROM devices ORDER BY device_name ASC LIMIT 1")
+    suspend fun getFirstDeviceOnce(): DeviceEntity?
+
     @Query("SELECT * FROM devices WHERE device_id = :deviceId")
     suspend fun getDeviceById(deviceId: String): DeviceEntity?
 
@@ -51,6 +54,9 @@ interface DeviceDao {
         speed: Float,
         timestamp: Long
     )
+
+    @Query("UPDATE devices SET last_synced_timestamp = :timestamp WHERE device_id = :deviceId")
+    suspend fun updateLastSyncedTimestamp(deviceId: String, timestamp: Long)
 
     @Delete
     suspend fun deleteDevice(device: DeviceEntity)

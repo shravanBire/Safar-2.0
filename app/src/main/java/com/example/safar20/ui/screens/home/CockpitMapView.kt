@@ -1,20 +1,47 @@
 package com.example.safar20.ui.screens.home
 
 import android.graphics.Color
+import android.view.MotionEvent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.safar20.data.local.entity.LocationPointEntity
+import com.example.safar20.ui.theme.Rajdhani
 import org.maplibre.android.MapLibre
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
@@ -23,18 +50,23 @@ import org.maplibre.android.annotations.PolylineOptions
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 
 /**
  * MapLibre Native MapView for Cockpit & Trips preview.
  * Draws markers and route polylines in the update block per SAFAR 2.0 specs.
+ * Fixes touch/scroll conflicts with parent container, provides a Recenter / Follow Bike FAB,
+ * and handles tile failure gracefully with a fallback overlay.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CockpitMapView(
     latitude: Double,
     longitude: Double,
     heading: Int = 0,
+    trackerName: String = "Tracker Position",
     routePoints: List<LocationPointEntity> = emptyList(),
     modifier: Modifier = Modifier.fillMaxSize()
 ) {
@@ -43,13 +75,15 @@ fun CockpitMapView(
     remember {
         try {
             MapLibre.getInstance(context)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
         }
     }
 
     val mapView = remember { MapView(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var isFollowingBike by remember { mutableStateOf(true) }
+    var isMapError by remember { mutableStateOf(false) }
 
     var currentMarker by remember { mutableStateOf<Marker?>(null) }
     var currentPolyline by remember { mutableStateOf<Polyline?>(null) }
@@ -70,91 +104,205 @@ fun CockpitMapView(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            try {
+                mapView.onPause()
+                mapView.onStop()
+                mapView.onDestroy()
+            } catch (_: Exception) {
+            }
         }
     }
 
-    AndroidView(
-        factory = {
-            mapView.apply {
-                onCreate(null)
-                getMapAsync { map ->
-                    map.setStyle(Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")) {
-                        map.uiSettings.isCompassEnabled = false
-                        map.uiSettings.isAttributionEnabled = false
-                        map.uiSettings.isLogoEnabled = false
-
-                        val initialPos = LatLng(latitude, longitude)
-                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(initialPos, 14.0))
-                    }
-                }
-            }
-        },
-        update = { view ->
-            view.getMapAsync { map ->
-                map.getStyle {
-                    if (routePoints.isNotEmpty()) {
-                        currentMarker?.let { map.removeAnnotation(it) }
-                        currentMarker = null
-
-                        currentPolyline?.let { map.removeAnnotation(it) }
-                        startMarker?.let { map.removeAnnotation(it) }
-                        endMarker?.let { map.removeAnnotation(it) }
-
-                        val latLngList = routePoints.map { LatLng(it.latitude, it.longitude) }
-
-                        if (latLngList.size >= 2) {
-                            val polylineOptions = PolylineOptions()
-                                .addAll(latLngList)
-                                .color(Color.parseColor("#C86D51"))
-                                .width(6f)
-
-                            currentPolyline = map.addPolyline(polylineOptions)
-
-                            startMarker = map.addMarker(
-                                MarkerOptions()
-                                    .position(latLngList.first())
-                                    .title("Trip Start")
-                            )
-                            endMarker = map.addMarker(
-                                MarkerOptions()
-                                    .position(latLngList.last())
-                                    .title("Trip End")
-                            )
-
-                            try {
-                                val boundsBuilder = LatLngBounds.Builder()
-                                latLngList.forEach { boundsBuilder.include(it) }
-                                map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
-                            } catch (e: Exception) {
-                                map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLngList.first(), 14.0))
+    Box(modifier = modifier) {
+        AndroidView(
+            factory = {
+                mapView.apply {
+                    onCreate(null)
+                    setOnTouchListener { view, event ->
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                                view.parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                view.parent?.requestDisallowInterceptTouchEvent(false)
                             }
                         }
-                    } else if (latitude != 0.0 && longitude != 0.0) {
-                        currentPolyline?.let { map.removeAnnotation(it) }
-                        startMarker?.let { map.removeAnnotation(it) }
-                        endMarker?.let { map.removeAnnotation(it) }
-                        currentPolyline = null
-                        startMarker = null
-                        endMarker = null
-
-                        val currentPos = LatLng(latitude, longitude)
-
-                        val marker = currentMarker
-                        if (marker != null) {
-                            marker.position = currentPos
-                        } else {
-                            currentMarker = map.addMarker(
-                                MarkerOptions()
-                                    .position(currentPos)
-                                    .title("Royal Enfield Classic 350")
-                            )
+                        false
+                    }
+                    getMapAsync { map ->
+                        map.addOnCameraMoveStartedListener { reason ->
+                            if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+                                isFollowingBike = false
+                            }
                         }
+                        map.setStyle(Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")) {
+                            map.uiSettings.isCompassEnabled = false
+                            map.uiSettings.isAttributionEnabled = false
+                            map.uiSettings.isLogoEnabled = false
 
-                        map.animateCamera(CameraUpdateFactory.newLatLngZoom(currentPos, 15.0))
+                            val initialPos = LatLng(latitude, longitude)
+                            map.animateCamera(CameraUpdateFactory.newLatLngZoom(initialPos, 14.0))
+                        }
+                        mapView.addOnDidFailLoadingMapListener {
+                            isMapError = true
+                        }
                     }
                 }
+            },
+            update = { view ->
+                view.getMapAsync { map ->
+                    map.getStyle {
+                        if (routePoints.isNotEmpty()) {
+                            currentMarker?.let { map.removeAnnotation(it) }
+                            currentMarker = null
+
+                            currentPolyline?.let { map.removeAnnotation(it) }
+                            startMarker?.let { map.removeAnnotation(it) }
+                            endMarker?.let { map.removeAnnotation(it) }
+
+                            val latLngList = routePoints.map { LatLng(it.latitude, it.longitude) }
+
+                            if (latLngList.size >= 2) {
+                                val polylineOptions = PolylineOptions()
+                                    .addAll(latLngList)
+                                    .color(Color.parseColor("#C86D51"))
+                                    .width(6f)
+
+                                currentPolyline = map.addPolyline(polylineOptions)
+
+                                startMarker = map.addMarker(
+                                    MarkerOptions()
+                                        .position(latLngList.first())
+                                        .title("Trip Start")
+                                )
+                                endMarker = map.addMarker(
+                                    MarkerOptions()
+                                        .position(latLngList.last())
+                                        .title("Trip End")
+                                )
+
+                                try {
+                                    val boundsBuilder = LatLngBounds.Builder()
+                                    latLngList.forEach { boundsBuilder.include(it) }
+                                    map.animateCamera(CameraUpdateFactory.newLatLngBounds(boundsBuilder.build(), 100))
+                                } catch (_: Exception) {
+                                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLngList.first(), 14.0))
+                                }
+                            }
+                        } else if (latitude != 0.0 && longitude != 0.0) {
+                            currentPolyline?.let { map.removeAnnotation(it) }
+                            startMarker?.let { map.removeAnnotation(it) }
+                            endMarker?.let { map.removeAnnotation(it) }
+                            currentPolyline = null
+                            startMarker = null
+                            endMarker = null
+
+                            val currentPos = LatLng(latitude, longitude)
+
+                            val marker = currentMarker
+                            if (marker != null) {
+                                marker.position = currentPos
+                                marker.title = trackerName
+                            } else {
+                                currentMarker = map.addMarker(
+                                    MarkerOptions()
+                                        .position(currentPos)
+                                        .title(trackerName)
+                                )
+                            }
+
+                            if (isFollowingBike) {
+                                map.animateCamera(CameraUpdateFactory.newLatLngZoom(currentPos, 15.0))
+                            }
+                        }
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    when (motionEvent.action) {
+                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                            mapView.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            mapView.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                    }
+                    false
+                }
+        )
+
+        // Overlay if Map fails to load tiles
+        if (isMapError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Map,
+                        contentDescription = "Map Unavailable",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "MAP UNAVAILABLE",
+                        fontFamily = Rajdhani,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
-        },
-        modifier = modifier
-    )
+        }
+
+        // Floating Recenter / Follow Bike Button
+        if (routePoints.isEmpty() && !isMapError) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f))
+                    .border(
+                        1.dp,
+                        if (isFollowingBike) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable {
+                        isFollowingBike = true
+                        if (latitude != 0.0 && longitude != 0.0) {
+                            mapView.getMapAsync { map ->
+                                map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(latitude, longitude), 15.0))
+                            }
+                        }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "Recenter or follow tracker position",
+                        tint = if (isFollowingBike) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isFollowingBike) "FOLLOWING" else "RECENTER",
+                        color = if (isFollowingBike) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = Rajdhani,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+    }
 }

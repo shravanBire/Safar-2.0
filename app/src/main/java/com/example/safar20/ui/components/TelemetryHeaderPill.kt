@@ -29,23 +29,24 @@ import com.example.safar20.ui.theme.PhosphorGreen
 import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SignalRed
 
-enum class ConnectionState {
-    P2P_DIRECT,
-    SIMULATOR_SYNCING,
-    PARKED,
-    OFFLINE
+sealed interface ConnectionState {
+    object NO_DEVICE : ConnectionState
+    object BROKER_NOT_CONFIGURED : ConnectionState
+    object CONNECTING : ConnectionState
+    data class BROKER_ERROR(val message: String) : ConnectionState
+    object WAITING_FOR_TRACKER : ConnectionState
+    object LIVE : ConnectionState
+    data class SYNCING(val progressPercent: Int) : ConnectionState
+    data class PARKED(val lastSeenTimestamp: Long?) : ConnectionState
 }
 
 /**
- * Top Cockpit Bar with Bike Selector Pill (Left) and Live P2P Connection Status Badge (Right).
+ * Top Cockpit Bar with Bike Selector Pill (Left) and Live Telemetry Status Badge (Right).
  */
 @Composable
 fun TelemetryHeaderPill(
-    activeDeviceName: String = "RE Classic 350",
-    connectionState: ConnectionState = ConnectionState.P2P_DIRECT,
-    latencyMs: Int? = 38,
-    syncProgressPercent: Int? = null,
-    lastSeenText: String? = "10m ago",
+    activeDeviceName: String = "No Tracker",
+    connectionState: ConnectionState = ConnectionState.NO_DEVICE,
     onDeviceClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -91,22 +92,33 @@ fun TelemetryHeaderPill(
             )
         }
 
-        // Right Pill — Live P2P / Telemetry Status Badge
+        // Right Pill — Live Telemetry Status Badge
         val (dotColor, badgeText) = when (connectionState) {
-            ConnectionState.P2P_DIRECT -> {
-                val msText = if (latencyMs != null) " (${latencyMs}ms)" else ""
-                PhosphorGreen to "P2P DIRECT$msText"
+            is ConnectionState.LIVE -> {
+                PhosphorGreen to "● LIVE"
             }
-            ConnectionState.SIMULATOR_SYNCING -> {
-                val percentText = if (syncProgressPercent != null) " ($syncProgressPercent%)" else ""
-                RoyalBrass to "SIMULATOR$percentText"
+            is ConnectionState.SYNCING -> {
+                RoyalBrass to "● SYNCING LOGS (${connectionState.progressPercent}%)"
             }
-            ConnectionState.PARKED -> {
-                val lastText = if (!lastSeenText.isNullOrEmpty()) " ($lastSeenText)" else ""
-                MaterialTheme.colorScheme.onSurfaceVariant to "PARKED$lastText"
+            is ConnectionState.PARKED -> {
+                val timeAgo = formatTimeAgo(connectionState.lastSeenTimestamp)
+                val label = if (timeAgo != null) "● PARKED • LAST SEEN $timeAgo" else "● PARKED"
+                MaterialTheme.colorScheme.onSurfaceVariant to label
             }
-            ConnectionState.OFFLINE -> {
-                SignalRed to "OFFLINE"
+            is ConnectionState.CONNECTING -> {
+                RoyalBrass to "● CONNECTING…"
+            }
+            is ConnectionState.WAITING_FOR_TRACKER -> {
+                RoyalBrass to "● WAITING FOR TRACKER"
+            }
+            is ConnectionState.BROKER_ERROR -> {
+                SignalRed to "● BROKER ERROR"
+            }
+            is ConnectionState.BROKER_NOT_CONFIGURED -> {
+                MaterialTheme.colorScheme.onSurfaceVariant to "● SET UP BROKER"
+            }
+            is ConnectionState.NO_DEVICE -> {
+                MaterialTheme.colorScheme.onSurfaceVariant to "● NO TRACKER"
             }
         }
 
@@ -117,7 +129,6 @@ fun TelemetryHeaderPill(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Glowing Status Dot
             Box(
                 modifier = Modifier
                     .size(8.dp)
@@ -135,4 +146,16 @@ fun TelemetryHeaderPill(
             )
         }
     }
+}
+
+private fun formatTimeAgo(timestampSeconds: Long?): String? {
+    if (timestampSeconds == null || timestampSeconds <= 0L) return null
+    val diffSec = (System.currentTimeMillis() / 1000) - timestampSeconds
+    if (diffSec < 60) return "JUST NOW"
+    val minutes = diffSec / 60
+    if (minutes < 60) return "${minutes}m AGO"
+    val hours = minutes / 60
+    if (hours < 24) return "${hours}h AGO"
+    val days = hours / 24
+    return "${days}d AGO"
 }

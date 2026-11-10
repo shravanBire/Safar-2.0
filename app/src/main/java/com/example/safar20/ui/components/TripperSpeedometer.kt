@@ -66,7 +66,7 @@ fun TripperSpeedometer(
     unit: String = "km/h",
     odoDistanceKm: Double = 0.0,
     gaugeSize: Dp = 260.dp,
-    connectionState: ConnectionState = ConnectionState.PARKED,
+    connectionState: ConnectionState = ConnectionState.PARKED(null),
     modifier: Modifier = Modifier
 ) {
     // Smooth bouncy spring mechanical needle sweep
@@ -279,7 +279,7 @@ fun TripperSpeedometer(
         }
 
         // Foreground Readout Overlay (Warning Strip, Speed, Mechanical Odometer)
-        val isConnectionActive = connectionState == ConnectionState.P2P_DIRECT || connectionState == ConnectionState.SIMULATOR_SYNCING
+        val isConnectionActive = connectionState is ConnectionState.LIVE || connectionState is ConnectionState.SYNCING
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -294,7 +294,7 @@ fun TripperSpeedometer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 WarningLightPill(label = "GPS", color = PhosphorGreen, isActive = isConnectionActive)
-                WarningLightPill(label = "P2P", color = RoyalBrass, isActive = isConnectionActive)
+                WarningLightPill(label = "LINK", color = RoyalBrass, isActive = isConnectionActive)
                 WarningLightPill(label = "SOS", color = SignalRed, isActive = false)
             }
 

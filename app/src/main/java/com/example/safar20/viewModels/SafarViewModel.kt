@@ -1,6 +1,7 @@
 package com.example.safar20.viewModels
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -8,18 +9,31 @@ import com.example.safar20.data.local.entity.DeviceEntity
 import com.example.safar20.data.local.entity.LocationPointEntity
 import com.example.safar20.data.local.entity.TripSummaryEntity
 import com.example.safar20.data.network.BinaryPacketCodec
+import com.example.safar20.data.network.LinkState
+import com.example.safar20.data.network.MockTelemetrySource
+import com.example.safar20.data.network.MqttTelemetrySource
 import com.example.safar20.data.repository.SafarRepository
 import com.example.safar20.ui.components.ConnectionState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.eclipse.paho.client.mqttv3.MqttClient
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
+import java.util.UUID
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -27,9 +41,9 @@ import kotlin.math.sqrt
 
 /**
  * Shared ViewModel for SAFAR 2.0.
- * Serves HomeScreen, TripsScreen, and SettingsScreen with a single source of truth.
+ * Single source of truth for Cockpit Dashboard, Logbook, and Settings.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SafarViewModel(
     private val repository: SafarRepository
 ) : ViewModel() {
@@ -47,42 +61,101 @@ class SafarViewModel(
     val speedUnit: StateFlow<String> = repository.speedUnit
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "km/h")
 
+    val mqttBrokerUri: StateFlow<String> = repository.mqttBrokerUri
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val mqttUsername: StateFlow<String> = repository.mqttUsername
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val mqttPassword: StateFlow<String> = repository.mqttPassword
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val linkState: StateFlow<LinkState> = repository.linkState
+    val historySyncProgress: StateFlow<Int?> = repository.historySyncProgress
+    val isDevModeEnabled: StateFlow<Boolean> = repository.isDevModeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // --- Foreground and Network State ---
+    private val _isForeground = MutableStateFlow(true)
+    val isForeground: StateFlow<Boolean> = _isForeground.asStateFlow()
+
+    private val _isNetworkAvailable = MutableStateFlow(true)
+    val isNetworkAvailable: StateFlow<Boolean> = _isNetworkAvailable.asStateFlow()
+
+    private data class ConnectConfig(
+        val device: DeviceEntity?,
+        val brokerUri: String,
+        val username: String,
+        val password: String,
+        val isSim: Boolean,
+        val isFg: Boolean,
+        val isNet: Boolean
+    )
+
     // --- Live Telemetry State ---
+    private val _hasLiveData = MutableStateFlow(false)
+    val hasLiveData: StateFlow<Boolean> = _hasLiveData.asStateFlow()
+
     private val _liveTelemetry = MutableStateFlow<BinaryPacketCodec.ParsedTripPoint?>(null)
     val liveTelemetry: StateFlow<BinaryPacketCodec.ParsedTripPoint?> = _liveTelemetry.asStateFlow()
 
-    private val _liveOdoDistanceKm = MutableStateFlow(18.4)
+    private val _liveOdoDistanceKm = MutableStateFlow(0.0)
     val liveOdoDistanceKm: StateFlow<Double> = _liveOdoDistanceKm.asStateFlow()
 
-    private val _liveTripDistanceKm = MutableStateFlow(18.4)
+    private val _liveTripDistanceKm = MutableStateFlow(0.0)
     val liveTripDistanceKm: StateFlow<Double> = _liveTripDistanceKm.asStateFlow()
 
-    private val _liveAvgSpeedKmh = MutableStateFlow(31.0)
+    private val _liveAvgSpeedKmh = MutableStateFlow(0.0)
     val liveAvgSpeedKmh: StateFlow<Double> = _liveAvgSpeedKmh.asStateFlow()
 
-    private val _liveMaxSpeedKmh = MutableStateFlow(78.0)
+    private val _liveMaxSpeedKmh = MutableStateFlow(0.0)
     val liveMaxSpeedKmh: StateFlow<Double> = _liveMaxSpeedKmh.asStateFlow()
 
-    private var liveSpeedSum: Double = 31.0
-    private var liveSpeedPointCount: Int = 1
+    private var liveSpeedSum: Double = 0.0
+    private var liveSpeedPointCount: Int = 0
 
     private var previousPoint: BinaryPacketCodec.ParsedTripPoint? = null
+    private var lastLocationDbWriteTime: Long = 0L
+
+    @Volatile
+    private var lastLivePacketElapsedRealtime: Long = 0L
 
     private val _isSimulatorRunning = MutableStateFlow(false)
     val isSimulatorRunning: StateFlow<Boolean> = _isSimulatorRunning.asStateFlow()
 
-    val connectionState: StateFlow<ConnectionState> = combine(
-        selectedDevice,
-        _isSimulatorRunning,
-        _liveTelemetry
-    ) { device, isSim, telemetry ->
-        when {
-            device == null -> ConnectionState.OFFLINE
-            isSim -> ConnectionState.SIMULATOR_SYNCING
-            telemetry != null && (System.currentTimeMillis() / 1000 - telemetry.timestamp) < 10 -> ConnectionState.P2P_DIRECT
-            else -> ConnectionState.PARKED
+    private fun tickerFlow(periodMs: Long) = flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            delay(periodMs)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionState.PARKED)
+    }
+
+    val connectionState: StateFlow<ConnectionState> = combine(
+        combine(selectedDevice, mqttBrokerUri, _isSimulatorRunning) { dev, uri, isSim ->
+            Triple(dev, uri, isSim)
+        },
+        combine(linkState, historySyncProgress, tickerFlow(1000L)) { link, progress, _ ->
+            Pair(link, progress)
+        }
+    ) { (device, brokerUri, isSim), (link, progress) ->
+        when {
+            device == null -> ConnectionState.NO_DEVICE
+            brokerUri.isBlank() -> ConnectionState.BROKER_NOT_CONFIGURED
+            isSim -> ConnectionState.LIVE
+            progress != null -> ConnectionState.SYNCING(progress)
+            link is LinkState.Error -> ConnectionState.BROKER_ERROR(link.message)
+            link is LinkState.Connecting -> ConnectionState.CONNECTING
+            link is LinkState.Connected -> {
+                val elapsedSinceLive = SystemClock.elapsedRealtime() - lastLivePacketElapsedRealtime
+                if (lastLivePacketElapsedRealtime > 0L && elapsedSinceLive <= 5000L) {
+                    ConnectionState.LIVE
+                } else {
+                    ConnectionState.WAITING_FOR_TRACKER
+                }
+            }
+            else -> ConnectionState.PARKED(device?.lastSyncedTimestamp)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ConnectionState.NO_DEVICE)
 
     // --- Trip History State ---
     val tripHistory: StateFlow<List<TripSummaryEntity>> = selectedDevice
@@ -112,6 +185,14 @@ class SafarViewModel(
         // Collect live telemetry from Repository
         viewModelScope.launch {
             repository.liveTelemetryStream.collect { telemetryPoint ->
+                _hasLiveData.value = true
+                lastLivePacketElapsedRealtime = SystemClock.elapsedRealtime()
+
+                if (telemetryPoint.isTripStart) {
+                    _liveTripDistanceKm.value = 0.0
+                    previousPoint = null
+                }
+
                 val prev = previousPoint
                 if (prev != null && telemetryPoint.speedKmh > 1.0f) {
                     val deltaM = calculateDistanceMeters(
@@ -133,21 +214,141 @@ class SafarViewModel(
                 previousPoint = telemetryPoint
                 _liveTelemetry.value = telemetryPoint
 
-                selectedDevice.value?.let { device ->
-                    repository.updateLastKnownLocation(
-                        deviceId = device.deviceId,
-                        lat = telemetryPoint.latitude,
-                        lon = telemetryPoint.longitude,
-                        speed = telemetryPoint.speedKmh,
-                        timestamp = telemetryPoint.timestamp
-                    )
+                val nowSec = System.currentTimeMillis() / 1000
+                if (nowSec - lastLocationDbWriteTime >= 10) {
+                    lastLocationDbWriteTime = nowSec
+                    selectedDevice.value?.let { device ->
+                        repository.updateLastKnownLocation(
+                            deviceId = device.deviceId,
+                            lat = telemetryPoint.latitude,
+                            lon = telemetryPoint.longitude,
+                            speed = telemetryPoint.speedKmh,
+                            timestamp = nowSec
+                        )
+                    }
                 }
             }
         }
 
-        // Auto-seed mock data on initial launch
+        // Centralized debounced connection evaluator
         viewModelScope.launch {
-            repository.seedMockData("SAFAR_01")
+            combine(
+                combine(selectedDevice, mqttBrokerUri, mqttUsername, mqttPassword) { dev, uri, user, pass ->
+                    listOf(dev, uri, user, pass)
+                },
+                combine(_isSimulatorRunning, _isForeground, _isNetworkAvailable) { isSim, isFg, isNet ->
+                    Triple(isSim, isFg, isNet)
+                }
+            ) { devConfig, stateConfig ->
+                val dev = devConfig[0] as DeviceEntity?
+                val uri = devConfig[1] as String
+                val user = devConfig[2] as String
+                val pass = devConfig[3] as String
+                val (isSim, isFg, isNet) = stateConfig
+                ConnectConfig(dev, uri, user, pass, isSim, isFg, isNet)
+            }
+                .debounce(300L)
+                .collect { config ->
+                    evaluateAndConnect(config)
+                }
+        }
+    }
+
+    fun setAppForeground(isForeground: Boolean) {
+        _isForeground.value = isForeground
+    }
+
+    fun setNetworkAvailable(isAvailable: Boolean) {
+        _isNetworkAvailable.value = isAvailable
+    }
+
+    private fun evaluateAndConnect(config: ConnectConfig) {
+        if (!config.isFg || !config.isNet || config.isSim || config.device == null || config.brokerUri.isBlank()) {
+            disconnect()
+            return
+        }
+        connectIfReady(config.device, config.brokerUri, config.username, config.password)
+    }
+
+    fun connectIfReady(
+        device: DeviceEntity? = selectedDevice.value,
+        brokerUri: String = mqttBrokerUri.value,
+        username: String = mqttUsername.value,
+        password: String = mqttPassword.value
+    ) {
+        if (device == null || brokerUri.isBlank() || _isSimulatorRunning.value || !_isForeground.value || !_isNetworkAvailable.value) {
+            disconnect()
+            return
+        }
+
+        _liveTripDistanceKm.value = 0.0
+        previousPoint = null
+
+        val currentSource = repository.getTelemetrySource()
+        if (currentSource is MqttTelemetrySource &&
+            currentSource.deviceId == device.deviceId &&
+            currentSource.brokerUri == brokerUri &&
+            currentSource.mqttUsername == username &&
+            currentSource.mqttPassword == password &&
+            currentSource.sharedSecretHex == device.sharedSecretHex
+        ) {
+            if (!currentSource.isRunning()) {
+                currentSource.start()
+            }
+        } else {
+            val mqttSource = MqttTelemetrySource(
+                deviceId = device.deviceId,
+                nostrPubKey = device.nostrPubKey,
+                sharedSecretHex = device.sharedSecretHex,
+                brokerUri = brokerUri,
+                mqttUsername = username,
+                mqttPassword = password,
+                lastSyncedProvider = { repository.getLastSyncedTimestamp(device.deviceId) }
+            )
+            repository.setTelemetrySource(mqttSource)
+            mqttSource.start()
+        }
+    }
+
+    fun disconnect() {
+        val currentSource = repository.getTelemetrySource()
+        if (currentSource is MqttTelemetrySource) {
+            currentSource.stop()
+        }
+    }
+
+    suspend fun testBrokerConnection(uri: String, username: String, password: String): String? {
+        return withContext(Dispatchers.IO) {
+            val cleanUri = uri.trim()
+            if (!cleanUri.startsWith("ssl://")) {
+                return@withContext "Invalid URI: Broker URI must start with ssl://"
+            }
+
+            try {
+                val clientId = "SafarTest_" + UUID.randomUUID().toString().take(8)
+                val testClient = MqttClient(
+                    cleanUri,
+                    clientId,
+                    MemoryPersistence()
+                )
+                val options = MqttConnectOptions().apply {
+                    isCleanSession = true
+                    connectionTimeout = 5
+                    keepAliveInterval = 10
+                    if (username.isNotBlank()) userName = username
+                    if (password.isNotBlank()) this.password = password.toCharArray()
+                }
+                testClient.connect(options)
+                if (testClient.isConnected) {
+                    testClient.disconnect()
+                    testClient.close()
+                    null
+                } else {
+                    "Connection failed"
+                }
+            } catch (e: Exception) {
+                MqttTelemetrySource.mapExceptionToHumanMessage(e)
+            }
         }
     }
 
@@ -160,6 +361,16 @@ class SafarViewModel(
                 sin(dLon / 2) * sin(dLon / 2)
         val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return r * c
+    }
+
+    fun saveMqttBrokerConfig(uri: String, username: String, password: String) {
+        viewModelScope.launch {
+            repository.setMqttBrokerConfig(uri, username, password)
+        }
+    }
+
+    fun sendClearTrackerFlash(mode: Int = 0): Boolean {
+        return repository.sendClearFlashCommand(mode)
     }
 
     // --- UI Actions ---
@@ -188,15 +399,39 @@ class SafarViewModel(
         }
     }
 
+    fun toggleDevMode(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setDevModeEnabled(enabled)
+        }
+    }
+
+    fun seedDemoRides() {
+        selectedDevice.value?.let { device ->
+            viewModelScope.launch {
+                repository.seedDemoTrips(device.deviceId)
+            }
+        }
+    }
+
+    fun removeDemoRides() {
+        selectedDevice.value?.let { device ->
+            viewModelScope.launch {
+                repository.deleteDemoTrips(device.deviceId)
+            }
+        }
+    }
+
     fun toggleSimulator(enable: Boolean) {
         _isSimulatorRunning.value = enable
         if (enable) {
+            _hasLiveData.value = true
             _liveTripDistanceKm.value = 0.0
             _liveAvgSpeedKmh.value = 0.0
             _liveMaxSpeedKmh.value = 0.0
             liveSpeedSum = 0.0
             liveSpeedPointCount = 0
             previousPoint = null
+            repository.setTelemetrySource(MockTelemetrySource())
             repository.startSimulator()
         } else {
             repository.stopSimulator()
@@ -226,17 +461,36 @@ class SafarViewModel(
         id: String,
         name: String,
         simNumber: String,
-        onSuccess: (DeviceEntity) -> Unit
+        pubKey: String,
+        secretHex: String,
+        onSuccess: (DeviceEntity) -> Unit,
+        onError: (String) -> Unit
     ) {
+        if (id.isBlank() || name.isBlank()) {
+            onError("Device ID and Name are required")
+            return
+        }
+        val cleanPub = pubKey.trim()
+        val cleanSec = secretHex.trim()
+
+        if (cleanPub.length != 64 || !cleanPub.matches(Regex("^[0-9a-fA-F]{64}$"))) {
+            onError("Public Key must be a valid 64-character hex string")
+            return
+        }
+        if (cleanSec.length != 64 || !cleanSec.matches(Regex("^[0-9a-fA-F]{64}$"))) {
+            onError("Shared Secret must be a valid 64-character hex string")
+            return
+        }
+
         viewModelScope.launch {
-            val device = repository.addManualDevice(id, name, simNumber)
+            val device = repository.addManualDevice(id, name, simNumber, cleanPub, cleanSec)
             onSuccess(device)
         }
     }
 
     fun deleteDevice(deviceId: String) {
         viewModelScope.launch {
-            repository.deleteDevice(deviceId)
+            repository.deleteDeviceAndHistory(deviceId)
         }
     }
 

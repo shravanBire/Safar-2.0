@@ -1,5 +1,8 @@
 package com.example.safar20
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,29 +40,98 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.ViewModelProvider
 import com.example.safar20.ui.components.IgnitionSplash
 import com.example.safar20.ui.screens.home.HomeScreen
 import com.example.safar20.ui.screens.settings.SettingScreen
 import com.example.safar20.ui.screens.trips.TripsScreen
-import com.example.safar20.ui.theme.BronzeRim
-import com.example.safar20.ui.theme.GunmetalGauge
-import com.example.safar20.ui.theme.MutedPewter
 import com.example.safar20.ui.theme.Rajdhani
-import com.example.safar20.ui.theme.RoyalBrass
 import com.example.safar20.ui.theme.SafarTheme
 import com.example.safar20.viewModels.SafarViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private var viewModel: SafarViewModel? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val vm = ViewModelProvider(this, SafarViewModel.Factory(applicationContext))[SafarViewModel::class.java]
+        viewModel = vm
+
+        registerNetworkCallback(vm)
+        setupProcessLifecycleObserver(vm)
+
         setContent {
-            SafarAppContent()
+            SafarAppContent(safarViewModel = vm)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel?.setAppForeground(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel?.setAppForeground(false)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterNetworkCallback()
+    }
+
+    private fun setupProcessLifecycleObserver(vm: SafarViewModel) {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                vm.setAppForeground(true)
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                vm.setAppForeground(false)
+            }
+        })
+    }
+
+    private fun registerNetworkCallback(vm: SafarViewModel) {
+        try {
+            val cm = getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager
+            connectivityManager = cm
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    vm.setNetworkAvailable(true)
+                }
+
+                override fun onLost(network: Network) {
+                    vm.setNetworkAvailable(false)
+                }
+            }
+            networkCallback = callback
+            cm?.registerDefaultNetworkCallback(callback)
+
+            @Suppress("DEPRECATION")
+            val activeNet = cm?.activeNetworkInfo
+            @Suppress("DEPRECATION")
+            vm.setNetworkAvailable(activeNet?.isConnected == true)
+        } catch (_: Exception) {
+            vm.setNetworkAvailable(true)
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        try {
+            networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {
         }
     }
 }
@@ -71,10 +143,7 @@ sealed class NavItem(val route: String, val title: String, val icon: ImageVector
 }
 
 @Composable
-fun SafarAppContent() {
-    val context = LocalContext.current
-    val safarViewModel: SafarViewModel = viewModel(factory = SafarViewModel.Factory(context))
-
+fun SafarAppContent(safarViewModel: SafarViewModel) {
     val isDarkTheme by safarViewModel.isDarkTheme.collectAsState()
     var selectedScreenIndex by remember { mutableIntStateOf(0) }
     var showSplash by rememberSaveable { mutableStateOf(true) }
